@@ -234,14 +234,14 @@ class ElevenLabsAdapter(VendorAdapter):
                 "metadata": {"model": "eleven_multilingual_v2", "voice_id": voice}
             }
         else:
-            # Real implementation would go here
+            # Real implementation
             try:
                 from elevenlabs.client import AsyncElevenLabs
                 
                 client = AsyncElevenLabs(api_key=self.api_key)
                 
                 # Generate audio
-                audio = await client.text_to_speech.convert(
+                audio_generator = await client.text_to_speech.convert(
                     text=text,
                     voice_id=voice,
                     model_id="eleven_multilingual_v2"
@@ -252,7 +252,7 @@ class ElevenLabsAdapter(VendorAdapter):
                 audio_path = f"storage/audio/{audio_filename}"
                 
                 with open(audio_path, "wb") as f:
-                    for chunk in audio:
+                    async for chunk in audio_generator:
                         f.write(chunk)
                 
                 latency = time.time() - start_time

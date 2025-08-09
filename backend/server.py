@@ -967,6 +967,17 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 (audio_path, json.dumps(metrics_meta), item_id),
             )
             duration = get_audio_duration_seconds(audio_path)
+            # If duration parser failed but file exists, fall back to a rough estimate using file size and codec hints
+            if not duration or duration <= 0:
+                try:
+                    sz = os.path.getsize(audio_path)
+                    # rough fallback: assume ~32kbps for mp3 if container suggests mp3; else assume PCM 24kHz mono 16-bit
+                    if str(audio_path).endswith('.mp3'):
+                        duration = max(duration or 0.0, (sz * 8) / (32000.0))
+                    else:
+                        duration = max(duration or 0.0, sz / (24000 * 2))
+                except Exception:
+                    pass
             tts_latency = float(tts_result.get("latency") or 0.0)
             # Guard against bad duration readings. If duration is unrealistic (> 1 hour) or zero, null out RTF.
             tts_rtf = (tts_latency / duration) if (duration and 0 < duration < 3600) else None

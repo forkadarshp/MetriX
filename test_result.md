@@ -171,6 +171,28 @@ frontend:
       - working: true
         agent: "main"
         comment: "4-tab dashboard (Dashboard, Quick Test, Batch Test, Results) is 95% complete and functional. May need testing after backend real API integration."
+  - task: "Results: Play audio + labeled metrics"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Hooked Play button to <audio> using /api/audio/{filename}. Added labeled pills: E2E Latency, TTS Latency, STT Latency, WER, Accuracy, Confidence."
+  - task: "Dashboard filters (Vendor, Service)"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Added Vendor and Service filters to Recent Activity list."
 
 metadata:
   created_by: "main_agent"

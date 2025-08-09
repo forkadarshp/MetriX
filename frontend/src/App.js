@@ -616,10 +616,10 @@ function App() {
                           const isSTT = it.transcript && !it.audio_path; // rare in our pipeline
                           const isE2E = it.audio_path && it.transcript;
                           const serviceOk = (filters.service === 'tts' && isTTS) || (filters.service === 'stt' && isSTT) || (filters.service === 'e2e' && isE2E);
-                          return vendorOk && serviceOk;
+                          return vendorOk &amp;&amp; serviceOk;
                         })
                       }))
-                      .filter((run) => run.items?.length > 0)
+                      .filter((run) => run.items?.length &gt; 0)
                       .slice(0, 5)
                       .map((run) => (
                       <div key={run.id} className="flex items-center justify-between p-3 bg-gray-50/50 rounded-lg">
@@ -686,80 +686,109 @@ function App() {
                       </Select>
                     </div>
 
-                    <div>
-                      <Label>Test Service (Isolated Mode)</Label>
-                      <Select value={quickTestForm.service} onValueChange={(v) => setQuickTestForm({...quickTestForm, service: v})} disabled={quickTestForm.mode !== 'isolated'}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tts">TTS</SelectItem>
-                          <SelectItem value="stt">STT</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  {/* Vendor-level config UI */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>ElevenLabs TTS Model</Label>
-                      <Select value={quickTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, tts_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="eleven_flash_v2_5">eleven_flash_v2_5</SelectItem>
-                          <SelectItem value="eleven_multilingual_v2">eleven_multilingual_v2</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Label className="mt-2">ElevenLabs STT Model</Label>
-                      <Select value={quickTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, stt_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="scribe_v1">scribe_v1</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Deepgram TTS Model</Label>
-                      <Select value={quickTestForm.models.deepgram.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, tts_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Label className="mt-2">Deepgram STT Model</Label>
-                      <Select value={quickTestForm.models.deepgram.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, stt_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="nova-3">nova-3</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {quickTestForm.mode === 'isolated' &amp;&amp; (
+                      <div>
+                        <Label>Test Service (Isolated Mode)</Label>
+                        <Select value={quickTestForm.service} onValueChange={(v) => setQuickTestForm({...quickTestForm, service: v})}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="tts">TTS</SelectItem>
+                            <SelectItem value="stt">STT</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Chained pairing config */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Chained: TTS Vendor</Label>
-                      <Select value={quickTestForm.chain.tts_vendor} onValueChange={(v)=>setQuickTestForm({...quickTestForm, chain:{...quickTestForm.chain, tts_vendor: v}})} disabled={quickTestForm.mode !== 'chained'}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
-                          <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {/* Vendor-level config UI - Isolated only, show relevant sections */}
+                  {quickTestForm.mode === 'isolated' &amp;&amp; (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {quickTestForm.vendors.includes('elevenlabs') &amp;&amp; (
+                        <div className="space-y-2">
+                          {quickTestForm.service === 'tts' &amp;&amp; (
+                            <>
+                              <Label>ElevenLabs TTS Model</Label>
+                              <Select value={quickTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, tts_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="eleven_flash_v2_5">eleven_flash_v2_5</SelectItem>
+                                  <SelectItem value="eleven_multilingual_v2">eleven_multilingual_v2</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                          {quickTestForm.service === 'stt' &amp;&amp; (
+                            <>
+                              <Label className="mt-2">ElevenLabs STT Model</Label>
+                              <Select value={quickTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, stt_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="scribe_v1">scribe_v1</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {quickTestForm.vendors.includes('deepgram') &amp;&amp; (
+                        <div className="space-y-2">
+                          {quickTestForm.service === 'tts' &amp;&amp; (
+                            <>
+                              <Label>Deepgram TTS Model</Label>
+                              <Select value={quickTestForm.models.deepgram.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, tts_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                          {quickTestForm.service === 'stt' &amp;&amp; (
+                            <>
+                              <Label className="mt-2">Deepgram STT Model</Label>
+                              <Select value={quickTestForm.models.deepgram.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, stt_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="nova-3">nova-3</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <Label>Chained: STT Vendor</Label>
-                      <Select value={quickTestForm.chain.stt_vendor} onValueChange={(v)=>setQuickTestForm({...quickTestForm, chain:{...quickTestForm.chain, stt_vendor: v}})} disabled={quickTestForm.mode !== 'chained'}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
-                          <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  )}
+
+                  {/* Chained pairing config - only show in chained mode */}
+                  {quickTestForm.mode === 'chained' &amp;&amp; (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Chained: TTS Vendor</Label>
+                        <Select value={quickTestForm.chain.tts_vendor} onValueChange={(v)=>setQuickTestForm({...quickTestForm, chain:{...quickTestForm.chain, tts_vendor: v}})}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
+                            <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Chained: STT Vendor</Label>
+                        <Select value={quickTestForm.chain.stt_vendor} onValueChange={(v)=>setQuickTestForm({...quickTestForm, chain:{...quickTestForm.chain, stt_vendor: v}})}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
+                            <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-
+                  {/* Vendors selection - hide in chained mode */}
+                  {quickTestForm.mode === 'isolated' &amp;&amp; (
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
@@ -788,32 +817,32 @@ function App() {
                         ))}
                       </div>
                     </div>
-                  </div>
-
-                  {error && (
-                    <Alert className="border-red-200 bg-red-50">
-                      <AlertDescription className="text-red-700">{error}</AlertDescription>
-                    </Alert>
                   )}
-
-                  <Button 
-                    onClick={handleQuickTest} 
-                    disabled={loading || quickTestForm.vendors.length === 0}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  >
-                    {loading ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Running Test...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <Zap className="h-4 w-4" />
-                        <span>Run Test</span>
-                      </div>
-                    )}
-                  </Button>
                 </div>
+
+                {error &amp;&amp; (
+                  <Alert className="border-red-200 bg-red-50">
+                    <AlertDescription className="text-red-700">{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button 
+                  onClick={handleQuickTest} 
+                  disabled={loading || (quickTestForm.mode === 'isolated' &amp;&amp; quickTestForm.vendors.length === 0)}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
+                  {loading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Running Test...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <Zap className="h-4 w-4" />
+                      <span>Run Test</span>
+                    </div>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -834,66 +863,64 @@ function App() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                  {/* Vendor-level config UI */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>ElevenLabs TTS Model</Label>
-                      <Select value={batchTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, tts_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="eleven_flash_v2_5">eleven_flash_v2_5</SelectItem>
-                          <SelectItem value="eleven_multilingual_v2">eleven_multilingual_v2</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Label className="mt-2">ElevenLabs STT Model</Label>
-                      <Select value={batchTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, stt_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="scribe_v1">scribe_v1</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Deepgram TTS Model</Label>
-                      <Select value={batchTestForm.models.deepgram.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, tts_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Label className="mt-2">Deepgram STT Model</Label>
-                      <Select value={batchTestForm.models.deepgram.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, stt_model: v}}})}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="nova-3">nova-3</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Chained pairing config */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Chained: TTS Vendor</Label>
-                      <Select value={batchTestForm.chain.tts_vendor} onValueChange={(v)=>setBatchTestForm({...batchTestForm, chain:{...batchTestForm.chain, tts_vendor: v}})} disabled={batchTestForm.mode !== 'chained'}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
-                          <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Chained: STT Vendor</Label>
-                      <Select value={batchTestForm.chain.stt_vendor} onValueChange={(v)=>setBatchTestForm({...batchTestForm, chain:{...batchTestForm.chain, stt_vendor: v}})} disabled={batchTestForm.mode !== 'chained'}>
-                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
-                          <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                      {/* Vendor-level config UI - Isolated only */}
+                      {batchTestForm.mode === 'isolated' &amp;&amp; (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {batchTestForm.vendors.includes('elevenlabs') &amp;&amp; (
+                            <div className="space-y-2">
+                              {batchTestForm.service === 'tts' &amp;&amp; (
+                                <>
+                                  <Label>ElevenLabs TTS Model</Label>
+                                  <Select value={batchTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, tts_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="eleven_flash_v2_5">eleven_flash_v2_5</SelectItem>
+                                      <SelectItem value="eleven_multilingual_v2">eleven_multilingual_v2</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                              {batchTestForm.service === 'stt' &amp;&amp; (
+                                <>
+                                  <Label className="mt-2">ElevenLabs STT Model</Label>
+                                  <Select value={batchTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, stt_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="scribe_v1">scribe_v1</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {batchTestForm.vendors.includes('deepgram') &amp;&amp; (
+                            <div className="space-y-2">
+                              {batchTestForm.service === 'tts' &amp;&amp; (
+                                <>
+                                  <Label>Deepgram TTS Model</Label>
+                                  <Select value={batchTestForm.models.deepgram.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, tts_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                              {batchTestForm.service === 'stt' &amp;&amp; (
+                                <>
+                                  <Label className="mt-2">Deepgram STT Model</Label>
+                                  <Select value={batchTestForm.models.deepgram.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, stt_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="nova-3">nova-3</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <Label>Test Mode</Label>
                       <Select value={batchTestForm.mode} onValueChange={(value) => setBatchTestForm({...batchTestForm, mode: value})}>
@@ -907,48 +934,79 @@ function App() {
                       </Select>
                     </div>
 
-                    <div>
-                      <Label>Test Service (Isolated Mode)</Label>
-                      <Select value={batchTestForm.service} onValueChange={(v) => setBatchTestForm({...batchTestForm, service: v})} disabled={batchTestForm.mode !== 'isolated'}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tts">TTS</SelectItem>
-                          <SelectItem value="stt">STT</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {batchTestForm.mode === 'isolated' &amp;&amp; (
+                      <div>
+                        <Label>Test Service (Isolated Mode)</Label>
+                        <Select value={batchTestForm.service} onValueChange={(v) => setBatchTestForm({...batchTestForm, service: v})}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="tts">TTS</SelectItem>
+                            <SelectItem value="stt">STT</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <Label>Vendors</Label>
-                    <div className="mt-1 space-y-2">
-                      {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
-                        <label key={vendor} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={batchTestForm.vendors.includes(vendor)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setBatchTestForm({
-                                  ...batchTestForm,
-                                  vendors: [...batchTestForm.vendors, vendor]
-                                });
-                              } else {
-                                setBatchTestForm({
-                                  ...batchTestForm,
-                                  vendors: batchTestForm.vendors.filter(v => v !== vendor)
-                                });
-                              }
-                            }}
-                            className="rounded border-gray-300"
-                          />
-                          <span className="text-sm capitalize">{vendor}</span>
-                        </label>
-                      ))}
+                  {/* Chained pairing config - only in chained mode */}
+                  {batchTestForm.mode === 'chained' &amp;&amp; (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Chained: TTS Vendor</Label>
+                        <Select value={batchTestForm.chain.tts_vendor} onValueChange={(v)=>setBatchTestForm({...batchTestForm, chain:{...batchTestForm.chain, tts_vendor: v}})}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
+                            <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Chained: STT Vendor</Label>
+                        <Select value={batchTestForm.chain.stt_vendor} onValueChange={(v)=>setBatchTestForm({...batchTestForm, chain:{...batchTestForm.chain, stt_vendor: v}})}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
+                            <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Vendors - hide in chained mode */}
+                  {batchTestForm.mode === 'isolated' &amp;&amp; (
+                    <div>
+                      <Label>Vendors</Label>
+                      <div className="mt-1 space-y-2">
+                        {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
+                          <label key={vendor} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={batchTestForm.vendors.includes(vendor)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBatchTestForm({
+                                    ...batchTestForm,
+                                    vendors: [...batchTestForm.vendors, vendor]
+                                  });
+                                } else {
+                                  setBatchTestForm({
+                                    ...batchTestForm,
+                                    vendors: batchTestForm.vendors.filter(v => v !== vendor)
+                                  });
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm capitalize">{vendor}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <Label>Test Scripts</Label>
@@ -981,7 +1039,7 @@ function App() {
                                 <Badge variant="secondary" className="text-xs">
                                   {script.item_count} items
                                 </Badge>
-                                {script.tags && (
+                                {script.tags &amp;&amp; (
                                   <Badge variant="outline" className="text-xs">
                                     {script.tags}
                                   </Badge>
@@ -994,7 +1052,7 @@ function App() {
                     </div>
                   </div>
 
-                  {error && (
+                  {error &amp;&amp; (
                     <Alert className="border-red-200 bg-red-50">
                       <AlertDescription className="text-red-700">{error}</AlertDescription>
                     </Alert>
@@ -1002,7 +1060,7 @@ function App() {
 
                   <Button 
                     onClick={handleBatchTest} 
-                    disabled={loading || batchTestForm.vendors.length === 0 || batchTestForm.scriptIds.length === 0}
+                    disabled={loading || batchTestForm.scriptIds.length === 0 || (batchTestForm.mode === 'isolated' &amp;&amp; batchTestForm.vendors.length === 0)}
                     className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
                   >
                     {loading ? (

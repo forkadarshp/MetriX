@@ -95,6 +95,7 @@ function App() {
     const interval = setInterval(() => {
       if (activeTab === 'dashboard') {
         fetchDashboardStats();
+        fetchInsights();
         fetchRuns();
       }
     }, 30000);

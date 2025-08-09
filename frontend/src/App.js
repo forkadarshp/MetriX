@@ -164,6 +164,9 @@ function App() {
       formData.append('text', quickTestForm.text);
       formData.append('vendors', quickTestForm.vendors.join(','));
       formData.append('mode', quickTestForm.mode);
+      // attach config as JSON
+      const config = { service: quickTestForm.mode === 'isolated' ? quickTestForm.service : undefined, models: quickTestForm.models, chain: quickTestForm.chain };
+      formData.append('config', JSON.stringify(config));
 
       const response = await fetch(`${API_BASE_URL}/api/runs/quick`, {
         method: 'POST',

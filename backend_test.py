@@ -931,7 +931,8 @@ class TTSSTTAPITester:
 def main():
     """Main test execution"""
     tester = TTSSTTAPITester()
-    return tester.run_all_tests()
+    # Run focused tests based on review request
+    return tester.run_focused_tests()
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -13,7 +13,7 @@ import { Separator } from './components/ui/separator';
 import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker } from 'lucide-react';
 import './App.css';
 
-const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
+const API_BASE_URL = import.meta?.env?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
 
 function App() {
   const [dashboardStats, setDashboardStats] = useState({});

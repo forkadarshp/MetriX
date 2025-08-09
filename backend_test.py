@@ -929,6 +929,17 @@ class TTSSTTAPITester:
         # 5. Health check
         self.test_health_endpoint()
         
+        # Additional tests for tasks marked as needs_retesting
+        print("\n" + "=" * 60)
+        print("🔥 ADDITIONAL TESTS FOR NEEDS_RETESTING TASKS")
+        print("=" * 60)
+        
+        # 6. ElevenLabs STT (Scribe) - marked as needs_retesting
+        self.test_elevenlabs_stt_scribe()
+        
+        # 7. Deepgram TTS (Aura 2) detailed test - marked as needs_retesting
+        self.test_deepgram_tts_aura2_detailed()
+        
         # Print summary
         print("\n" + "=" * 60)
         print("📊 TEST SUMMARY")

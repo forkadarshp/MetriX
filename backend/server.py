@@ -923,7 +923,7 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
     total_latency = tts_latency + stt_latency
     duration = get_audio_duration_seconds(audio_path)
     tts_rtf = (tts_latency / duration) if duration > 0 else None
-    stt_rtf = (stt_latency / duration) if duration &gt; 0 else None
+    stt_rtf = (stt_latency / duration) if duration > 0 else None
     # Store results
     cursor.execute(
         "UPDATE run_items SET transcript = ?, audio_path = ?, metrics_json = ? WHERE id = ?",

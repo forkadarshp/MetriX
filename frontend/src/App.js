@@ -212,7 +212,12 @@ function App() {
       const runData = {
         mode: batchTestForm.mode,
         vendors: batchTestForm.vendors,
-        script_ids: batchTestForm.scriptIds
+        script_ids: batchTestForm.scriptIds,
+        config: {
+          service: batchTestForm.mode === 'isolated' ? batchTestForm.service : undefined,
+          models: batchTestForm.models,
+          chain: batchTestForm.chain
+        }
       };
 
       const response = await fetch(`${API_BASE_URL}/api/runs`, {

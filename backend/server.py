@@ -514,22 +514,57 @@ def calculate_wer(reference: str, hypothesis: str) -> float:
     return dp[m][n] / len(ref_words)
 
 def get_audio_duration_seconds(audio_path: str) -> float:
-    """Return duration of audio file in seconds. Uses wave for WAV, mutagen otherwise."""
+    """Return duration of audio file in seconds.
+    Strategy:
+    - Prefer container-accurate readers (wave for WAV, mutagen for others)
+    - Sanity check the result (0 < duration < 3600s). If out-of-range, fall back to size-based estimate
+    - Size fallback:
+        • MP3: assume ~32kbps (conservative) → seconds ≈ bytes * 8 / 32000
+        • Other: assume PCM 24kHz mono 16-bit → seconds ≈ bytes / (24000 * 2)
+    """
+    p = Path(audio_path)
     try:
-        p = Path(audio_path)
         ext = p.suffix.lower()
+        # 1) Container-accurate readers
         if ext in [".wav", ".wave"]:
             with wave.open(str(p), 'rb') as wf:
                 frames = wf.getnframes()
                 rate = wf.getframerate()
                 if rate:
-                    return frames / float(rate)
+                    dur = frames / float(rate)
+                    if 0 < dur < 3600:
+                        return float(dur)
         if MutagenFile is not None:
-            mf = MutagenFile(str(p))
-            if mf is not None and getattr(mf, 'info', None) and getattr(mf.info, 'length', None):
-                return float(mf.info.length)
+            try:
+                mf = MutagenFile(str(p))
+                if mf is not None and getattr(mf, 'info', None) and getattr(mf.info, 'length', None):
+                    dur = float(mf.info.length)
+                    if 0 < dur < 3600:
+                        return dur
+            except Exception:
+                # Mutagen can fail on partially written or rare containers
+                pass
     except Exception as e:
-        logger.warning(f"Could not determine audio duration for {audio_path}: {e}")
+        logger.warning(f"Could not parse audio duration for {audio_path} via container readers: {e}")
+
+    # 2) Fallback to file-size based estimation
+    try:
+        sz = os.path.getsize(str(p))
+        ext = p.suffix.lower()
+        if ext == ".mp3":
+            # 32 kbps fallback (safe lower bound). Use higher bitrate if very small estimate (<0.5s)
+            dur = (sz * 8) / 32000.0
+            if dur < 0.5:
+                dur = (sz * 8) / 64000.0  # 64 kbps alternative
+        else:
+            # Assume PCM 24kHz mono, 16-bit
+            dur = sz / float(24000 * 2)
+        # Clamp to plausible bounds
+        if 0 < dur < 3600:
+            return float(dur)
+    except Exception as e:
+        logger.warning(f"Size-based duration fallback failed for {audio_path}: {e}")
+
     return 0.0
 
 # Database helper functions

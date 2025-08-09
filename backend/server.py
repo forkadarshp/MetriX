@@ -397,6 +397,7 @@ class DeepgramAdapter(VendorAdapter):
             # Request a proper containerized output (mp3 by default)
             params = {
                 "model": model,
+                "voice": voice,
                 "container": container,
                 "sample_rate": str(sample_rate)
             }

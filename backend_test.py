@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 class TTSSTTAPITester:
-    def __init__(self, base_url: str = "https://9ad19b5d-33f9-4b8f-a49a-377656e2c9bc.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://6c02f955-20fe-49a7-9ea0-7ba8f08295ff.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0

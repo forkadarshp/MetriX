@@ -13,8 +13,16 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 class MetricsAPITester:
-    def __init__(self, base_url: str = "https://da84d7a4-c31b-45c8-a5c8-f35d08cf3b80.preview.emergentagent.com"):
-        self.base_url = base_url
+    def __init__(self, base_url: str = None):
+        # Prefer explicit argument, then env vars, then localhost
+        env_base = (
+            base_url
+            or os.environ.get("BACKEND_BASE_URL")
+            or os.environ.get("REACT_APP_BACKEND_URL")
+            or "http://localhost:8001"
+        )
+        # Trim trailing slash if any
+        self.base_url = env_base.rstrip("/")
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
@@ -568,7 +576,9 @@ class MetricsAPITester:
 
 def main():
     """Main test execution"""
-    tester = MetricsAPITester()
+    # Allow optional CLI arg for base_url
+    base = sys.argv[1] if len(sys.argv) > 1 else None
+    tester = MetricsAPITester(base_url=base)
     return tester.run_metrics_tests()
 
 if __name__ == "__main__":

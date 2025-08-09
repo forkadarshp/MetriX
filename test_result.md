@@ -44,7 +44,7 @@
 ## metadata:
 ##   created_by: "main_agent"
 ##   version: "1.0"
-##   test_sequence: 0
+##   test_sequence: 1
 ##   run_ui: false
 ##
 ## test_plan:
@@ -187,6 +187,30 @@ backend:
         agent: "main"
         comment: "SQLite database with 7 tables is fully implemented and working."
 
+  - task: "Backend Metrics Test Suite"
+    implemented: true
+    working: "needs_testing"
+    file: "backend_metrics_test.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Completed the metrics test script with env/CLI-configurable base URL. Will run automated backend tests next." 
+
+  - task: "Audio duration + PDF export dependencies"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/requirements.txt"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Added mutagen and reportlab to requirements to enable MP3 duration and PDF export. Installing and restarting backend next."
+
 frontend:
   - task: "React Dashboard UI"
     implemented: true
@@ -225,18 +249,17 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Backend testing complete - all tasks verified"
+    - "Run backend metrics test suite and verify all 7 checks"
+    - "Validate audio_duration population and PDF export"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
-    message: "🎉 MISSION ACCOMPLISHED! Both ElevenLabs TTS and Deepgram STT are now working with real APIs. Chained mode (TTS→STT) pipeline fully functional. WER: 11.1%, confidence: 99.97%, E2E latency: 1.22s. Ready for frontend testing or production deployment."
-  - agent: "testing"
-    message: "✅ COMPREHENSIVE BACKEND TESTING COMPLETE! All 7 focused tests PASSED (100% success rate). Key findings: 1) Audio serving working (41KB+ files, audio/mpeg content-type) 2) ElevenLabs TTS isolated mode creating real audio files 3) Deepgram TTS (Aura 2) generating 48KB+ audio files successfully 4) Chained mode metrics working (e2e_latency, tts_latency, stt_latency, wer, confidence) 5) Health endpoint operational 6) ElevenLabs STT (Scribe) transcribing with real API variations 7) All vendor capabilities functional with real API keys. Backend is production-ready!"
+    message: "Prepared metrics test script and added missing dependencies (mutagen, reportlab). Please run backend-focused tests only and report detailed results for the 7 checks."

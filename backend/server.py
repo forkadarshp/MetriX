@@ -395,9 +395,14 @@ class DeepgramAdapter(VendorAdapter):
                 "Content-Type": "application/json"
             }
             # Request a proper containerized output (mp3 by default)
+            # Deepgram Speak API uses combined model format like "aura-2-thalia-en"
+            if model == "aura-2" and voice:
+                combined_model = f"aura-2-{voice}-en"
+            else:
+                combined_model = model
+            
             params = {
-                "model": model,
-                "voice": voice,
+                "model": combined_model,
                 "container": container,
                 "sample_rate": str(sample_rate)
             }

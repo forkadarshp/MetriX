@@ -773,6 +773,75 @@ class TTSSTTAPITester:
         
         return False
 
+    def test_chained_mode_metrics(self):
+        """Test chained mode and verify metrics labels"""
+        print("\n🔍 Testing Chained Mode Metrics...")
+        
+        run_data = {
+            "mode": "chained",
+            "vendors": ["elevenlabs", "deepgram"],
+            "text_inputs": ["The quick brown fox"]
+        }
+        
+        success, response, status_code = self.make_request('POST', '/api/runs', data=run_data)
+        
+        if not success or status_code != 200:
+            self.log_test("Chained Mode Metrics", False, f"Failed to create run: {status_code}")
+            return False
+        
+        try:
+            data = response.json()
+            run_id = data['run_id']
+            self.created_run_ids.append(run_id)
+        except:
+            self.log_test("Chained Mode Metrics", False, "Invalid response format")
+            return False
+        
+        # Wait for processing
+        time.sleep(3)
+        
+        # Check run results
+        success, response, status_code = self.make_request('GET', '/api/runs')
+        if success and status_code == 200:
+            runs_data = response.json()
+            runs = runs_data.get('runs', [])
+            
+            # Find our run
+            target_run = None
+            for run in runs:
+                if run.get('id') == run_id:
+                    target_run = run
+                    break
+            
+            if target_run and target_run.get('items'):
+                # Check for expected metrics in chained mode
+                expected_metrics = ['e2e_latency', 'tts_latency', 'stt_latency', 'wer', 'confidence']
+                found_metrics = []
+                
+                for item in target_run['items']:
+                    metrics_summary = item.get('metrics_summary', '')
+                    if metrics_summary:
+                        # Parse metrics from summary string
+                        for metric in expected_metrics:
+                            if metric in metrics_summary:
+                                found_metrics.append(metric)
+                
+                found_metrics = list(set(found_metrics))  # Remove duplicates
+                
+                if len(found_metrics) >= 3:  # At least 3 of the expected metrics
+                    self.log_test("Chained Mode Metrics", True, 
+                                f"Found metrics: {found_metrics}")
+                    return True
+                else:
+                    self.log_test("Chained Mode Metrics", False, 
+                                f"Missing expected metrics. Found: {found_metrics}")
+            else:
+                self.log_test("Chained Mode Metrics", False, "No items found in run")
+        else:
+            self.log_test("Chained Mode Metrics", False, "Failed to retrieve runs")
+        
+        return False
+
     def test_elevenlabs_stt_scribe(self):
         """Test ElevenLabs STT (Scribe) functionality"""
         print("\n🔍 Testing ElevenLabs STT (Scribe)...")

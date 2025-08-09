@@ -334,6 +334,255 @@ class TTSSTTAPITester:
         self.log_test("Run Processing", False, "Run did not complete within timeout")
         return False
 
+    def test_real_elevenlabs_tts(self):
+        """Test real ElevenLabs TTS integration"""
+        print("\n🔍 Testing Real ElevenLabs TTS Integration...")
+        
+        # Create a run specifically for ElevenLabs TTS testing
+        run_data = {
+            "mode": "isolated",
+            "vendors": ["elevenlabs"],
+            "text_inputs": ["Welcome to our banking services. How can I help you today?"]
+        }
+        
+        success, response, status_code = self.make_request('POST', '/api/runs', data=run_data)
+        
+        if not success or status_code != 200:
+            self.log_test("ElevenLabs TTS - Run Creation", False, f"Failed to create run: {status_code}")
+            return False
+        
+        try:
+            data = response.json()
+            run_id = data['run_id']
+            self.created_run_ids.append(run_id)
+        except:
+            self.log_test("ElevenLabs TTS - Run Creation", False, "Invalid response format")
+            return False
+        
+        # Wait for processing and check results
+        max_wait_time = 90  # Longer wait for real API calls
+        check_interval = 5
+        
+        for attempt in range(max_wait_time // check_interval):
+            success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
+            
+            if success and status_code == 200:
+                try:
+                    data = response.json()
+                    run = data['run']
+                    status = run.get('status', 'unknown')
+                    
+                    if status == 'completed':
+                        items = run.get('items', [])
+                        if items:
+                            item = items[0]  # First item
+                            audio_path = item.get('audio_path', '')
+                            
+                            # Check if real audio file was generated (not dummy)
+                            if audio_path and 'elevenlabs_' in audio_path and not audio_path.endswith('dummy'):
+                                # Check if we can access the audio file
+                                audio_filename = audio_path.split('/')[-1]
+                                audio_success, audio_response, audio_status = self.make_request('GET', f'/api/audio/{audio_filename}')
+                                
+                                if audio_success and audio_status == 200:
+                                    # Check if it's real audio content (not dummy bytes)
+                                    content_length = len(audio_response.content) if audio_response else 0
+                                    if content_length > 100:  # Real audio should be larger than dummy
+                                        self.log_test("ElevenLabs TTS - Real API", True, 
+                                                    f"Real audio generated: {content_length} bytes")
+                                        return True
+                                    else:
+                                        self.log_test("ElevenLabs TTS - Real API", False, 
+                                                    f"Audio too small, likely dummy: {content_length} bytes")
+                                else:
+                                    self.log_test("ElevenLabs TTS - Real API", False, 
+                                                f"Cannot access audio file: {audio_status}")
+                            else:
+                                self.log_test("ElevenLabs TTS - Real API", False, 
+                                            f"Invalid or dummy audio path: {audio_path}")
+                        else:
+                            self.log_test("ElevenLabs TTS - Real API", False, "No items in completed run")
+                        return False
+                    elif status == 'failed':
+                        self.log_test("ElevenLabs TTS - Real API", False, "Run failed during processing")
+                        return False
+                    else:
+                        print(f"   Waiting for ElevenLabs processing... Status: {status} (attempt {attempt + 1})")
+                        time.sleep(check_interval)
+                except Exception as e:
+                    print(f"   Error checking ElevenLabs run: {str(e)}")
+                    time.sleep(check_interval)
+            else:
+                time.sleep(check_interval)
+        
+        self.log_test("ElevenLabs TTS - Real API", False, "Processing timeout")
+        return False
+
+    def test_real_deepgram_stt(self):
+        """Test real Deepgram STT integration"""
+        print("\n🔍 Testing Real Deepgram STT Integration...")
+        
+        # Create a run specifically for Deepgram STT testing
+        run_data = {
+            "mode": "isolated", 
+            "vendors": ["deepgram"],
+            "text_inputs": ["The quick brown fox jumps over the lazy dog."]
+        }
+        
+        success, response, status_code = self.make_request('POST', '/api/runs', data=run_data)
+        
+        if not success or status_code != 200:
+            self.log_test("Deepgram STT - Run Creation", False, f"Failed to create run: {status_code}")
+            return False
+        
+        try:
+            data = response.json()
+            run_id = data['run_id']
+            self.created_run_ids.append(run_id)
+        except:
+            self.log_test("Deepgram STT - Run Creation", False, "Invalid response format")
+            return False
+        
+        # Wait for processing and check results
+        max_wait_time = 90
+        check_interval = 5
+        
+        for attempt in range(max_wait_time // check_interval):
+            success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
+            
+            if success and status_code == 200:
+                try:
+                    data = response.json()
+                    run = data['run']
+                    status = run.get('status', 'unknown')
+                    
+                    if status == 'completed':
+                        items = run.get('items', [])
+                        if items:
+                            item = items[0]
+                            transcript = item.get('transcript', '')
+                            original_text = "The quick brown fox jumps over the lazy dog."
+                            
+                            # Check if we got a real transcript (not dummy)
+                            if transcript and transcript != original_text:
+                                # Real API might return slightly different text due to TTS->STT conversion
+                                # Check if transcript contains key words from original
+                                key_words = ['quick', 'brown', 'fox', 'jumps', 'lazy', 'dog']
+                                words_found = sum(1 for word in key_words if word.lower() in transcript.lower())
+                                
+                                if words_found >= 4:  # At least 4 out of 6 key words
+                                    self.log_test("Deepgram STT - Real API", True, 
+                                                f"Real transcript generated: '{transcript}'")
+                                    return True
+                                else:
+                                    self.log_test("Deepgram STT - Real API", False, 
+                                                f"Transcript doesn't match expected content: '{transcript}'")
+                            else:
+                                self.log_test("Deepgram STT - Real API", False, 
+                                            f"No transcript or dummy transcript: '{transcript}'")
+                        else:
+                            self.log_test("Deepgram STT - Real API", False, "No items in completed run")
+                        return False
+                    elif status == 'failed':
+                        self.log_test("Deepgram STT - Real API", False, "Run failed during processing")
+                        return False
+                    else:
+                        print(f"   Waiting for Deepgram processing... Status: {status} (attempt {attempt + 1})")
+                        time.sleep(check_interval)
+                except Exception as e:
+                    print(f"   Error checking Deepgram run: {str(e)}")
+                    time.sleep(check_interval)
+            else:
+                time.sleep(check_interval)
+        
+        self.log_test("Deepgram STT - Real API", False, "Processing timeout")
+        return False
+
+    def test_chained_mode_real_apis(self):
+        """Test chained mode with real APIs (TTS -> STT)"""
+        print("\n🔍 Testing Chained Mode with Real APIs...")
+        
+        # Create a chained run with both vendors
+        run_data = {
+            "mode": "chained",
+            "vendors": ["elevenlabs", "deepgram"],
+            "text_inputs": ["Hello world, this is a test of the speech recognition system."]
+        }
+        
+        success, response, status_code = self.make_request('POST', '/api/runs', data=run_data)
+        
+        if not success or status_code != 200:
+            self.log_test("Chained Mode - Run Creation", False, f"Failed to create run: {status_code}")
+            return False
+        
+        try:
+            data = response.json()
+            run_id = data['run_id']
+            self.created_run_ids.append(run_id)
+        except:
+            self.log_test("Chained Mode - Run Creation", False, "Invalid response format")
+            return False
+        
+        # Wait for processing and check results
+        max_wait_time = 120  # Longer wait for chained processing
+        check_interval = 5
+        
+        for attempt in range(max_wait_time // check_interval):
+            success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
+            
+            if success and status_code == 200:
+                try:
+                    data = response.json()
+                    run = data['run']
+                    status = run.get('status', 'unknown')
+                    
+                    if status == 'completed':
+                        items = run.get('items', [])
+                        if items:
+                            item = items[0]
+                            transcript = item.get('transcript', '')
+                            audio_path = item.get('audio_path', '')
+                            original_text = "Hello world, this is a test of the speech recognition system."
+                            
+                            # Check both audio generation and transcription
+                            audio_generated = audio_path and 'elevenlabs_' in audio_path
+                            transcript_generated = transcript and len(transcript) > 10
+                            
+                            if audio_generated and transcript_generated:
+                                # Calculate basic similarity
+                                original_words = set(original_text.lower().split())
+                                transcript_words = set(transcript.lower().split())
+                                common_words = original_words.intersection(transcript_words)
+                                similarity = len(common_words) / len(original_words) if original_words else 0
+                                
+                                if similarity >= 0.5:  # At least 50% word overlap
+                                    self.log_test("Chained Mode - Real APIs", True, 
+                                                f"End-to-end success. Similarity: {similarity:.2f}, Transcript: '{transcript}'")
+                                    return True
+                                else:
+                                    self.log_test("Chained Mode - Real APIs", False, 
+                                                f"Low similarity: {similarity:.2f}, Transcript: '{transcript}'")
+                            else:
+                                self.log_test("Chained Mode - Real APIs", False, 
+                                            f"Missing audio ({audio_generated}) or transcript ({transcript_generated})")
+                        else:
+                            self.log_test("Chained Mode - Real APIs", False, "No items in completed run")
+                        return False
+                    elif status == 'failed':
+                        self.log_test("Chained Mode - Real APIs", False, "Run failed during processing")
+                        return False
+                    else:
+                        print(f"   Waiting for chained processing... Status: {status} (attempt {attempt + 1})")
+                        time.sleep(check_interval)
+                except Exception as e:
+                    print(f"   Error checking chained run: {str(e)}")
+                    time.sleep(check_interval)
+            else:
+                time.sleep(check_interval)
+        
+        self.log_test("Chained Mode - Real APIs", False, "Processing timeout")
+        return False
+
     def test_error_handling(self):
         """Test error handling for invalid requests"""
         print("\n🔍 Testing Error Handling...")

@@ -19,6 +19,7 @@ function App() {
   const [dashboardStats, setDashboardStats] = useState({});
   const [runs, setRuns] = useState([]);
   const [scripts, setScripts] = useState([]);
+  const [filters, setFilters] = useState({ vendor: 'all', service: 'all' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');

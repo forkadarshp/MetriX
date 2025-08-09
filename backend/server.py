@@ -900,7 +900,7 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
     conn.commit()
 
 async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn):
-    """Process chained mode testing (TTS -&gt; STT)."""
+    """Process chained mode testing (TTS -> STT)."""
     cursor = conn.cursor()
     # Choose vendors
     tts_vendor = vendor if vendor in ["elevenlabs", "aws"] else "elevenlabs"

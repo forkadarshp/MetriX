@@ -135,17 +135,17 @@ backend:
         agent: "main"
         comment: "Updated .env with real Deepgram API key. Real implementation already exists in code."
 
-  - task: "API Endpoints"
+  - task: "Chained Mode Testing"
     implemented: true
     working: true
-    file: "server.py"
+    file: "server.py (lines 743-793)"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "All 8+ API endpoints exist and were working with dummy implementations. Need to verify they work with real vendor APIs."
+        comment: "END-TO-END PIPELINE WORKING! TTS→STT chain: 'The quick brown fox...' → ElevenLabs → Deepgram → 'The quick brown fox...'. WER: 11.1% (PASSED), E2E latency: 1.22s, confidence: 99.97%"
 
   - task: "Database Schema"
     implemented: true

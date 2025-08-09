@@ -687,6 +687,19 @@ function App() {
                     </div>
 
                     <div>
+                      <Label>Test Service (Isolated Mode)</Label>
+                      <Select value={quickTestForm.service} onValueChange={(v) => setQuickTestForm({...quickTestForm, service: v})} disabled={quickTestForm.mode !== 'isolated'}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tts">TTS</SelectItem>
+                          <SelectItem value="stt">STT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
                         {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (

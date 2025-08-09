@@ -17,6 +17,7 @@ const API_BASE_URL = import.meta?.env?.REACT_APP_BACKEND_URL || process.env.REAC
 
 function App() {
   const [dashboardStats, setDashboardStats] = useState({});
+  const [insights, setInsights] = useState({ service_mix: {}, vendor_usage: { tts: {}, stt: {} }, top_vendor_pairings: [] });
   const [runs, setRuns] = useState([]);
   const [scripts, setScripts] = useState([]);
   const [filters, setFilters] = useState({ vendor: 'all', service: 'all' });

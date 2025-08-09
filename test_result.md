@@ -189,24 +189,30 @@ backend:
 
   - task: "Backend Metrics Test Suite"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "backend_metrics_test.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "ALL 7 METRICS TESTS PASSED! ✅ Isolated TTS latency correctness (tts_latency=1.26s, no generic/stt latency) ✅ Isolated STT latency correctness (stt_latency=0.45s) ✅ Chained latency math (TTS+STT=E2E within 0ms tolerance) ✅ RTF computation (all 3/3 items have valid RTF values) ✅ Dashboard stats non-zero latency (0.557s) ✅ Dashboard insights endpoint (service_mix, vendor_usage, top_vendor_pairings structures) ✅ Export CSV/PDF (25,665 bytes CSV, 6,086 bytes PDF). Created 6 test runs successfully. Real APIs working perfectly."
       - working: "needs_testing"
         agent: "main"
         comment: "Completed the metrics test script with env/CLI-configurable base URL. Will run automated backend tests next." 
 
   - task: "Audio duration + PDF export dependencies"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "backend/requirements.txt"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "DEPENDENCIES WORKING! ✅ mutagen imported successfully - enables MP3/audio duration calculation ✅ reportlab imported successfully - enables PDF export functionality. Both libraries are properly installed and functional in the backend environment."
       - working: "needs_testing"
         agent: "main"
         comment: "Added mutagen and reportlab to requirements to enable MP3 duration and PDF export. Installing and restarting backend next."

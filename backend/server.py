@@ -341,11 +341,15 @@ class DeepgramAdapter(VendorAdapter):
             try:
                 from deepgram import DeepgramClient, PrerecordedOptions, FileSource
                 client = DeepgramClient(self.api_key)
+                # Raw STT by default (no formatting/punctuation), override via params if needed
+                smart_format = bool(params.get("smart_format", False))
+                punctuate = bool(params.get("punctuate", False))
+                language = params.get("language", "en-US")
                 options = PrerecordedOptions(
                     model=model,
-                    smart_format=True,
-                    punctuate=True,
-                    language="en-US"
+                    smart_format=smart_format,
+                    punctuate=punctuate,
+                    language=language,
                 )
                 with open(audio_path, 'rb') as audio_file:
                     buffer_data = audio_file.read()
@@ -1057,7 +1061,14 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             # Evaluate via Deepgram STT (default nova-3) for WER/accuracy/confidence
             dg_params = pick_models("deepgram", "stt")
             stt_adapter = VENDOR_ADAPTERS["deepgram"]["stt"]
-            stt_result = await stt_adapter.transcribe(audio_path, **dg_params)
+            # Explicitly request raw STT (no formatting, no punctuation) for the evaluation
+            stt_result = await stt_adapter.transcribe(
+                audio_path,
+                **dg_params,
+                smart_format=False,
+                punctuate=False,
+                language="en-US",
+            )
             if stt_result.get("status") == "success":
                 wer = calculate_wer(text_input, stt_result["transcript"].strip())
                 metrics.extend([

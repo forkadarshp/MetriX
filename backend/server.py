@@ -412,9 +412,11 @@ class DeepgramAdapter(VendorAdapter):
             audio_path = f"storage/audio/{audio_filename}"
             file_size = 0
             async with httpx.AsyncClient() as client:
+                logger.info(f"Deepgram TTS request: {url} with params: {params} and payload: {payload}")
                 async with client.stream("POST", url, headers=headers, params=params, json=payload, timeout=60.0) as resp:
                     if resp.status_code != 200:
                         error_text = await resp.aread()
+                        logger.error(f"Deepgram TTS error response: {resp.status_code} - {error_text.decode()}")
                         return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": time.time() - req_time}
                     async with aiofiles.open(audio_path, 'wb') as f:
                         async for chunk in resp.aiter_bytes(chunk_size=1024):

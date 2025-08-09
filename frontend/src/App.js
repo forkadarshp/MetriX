@@ -834,6 +834,67 @@ function App() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
+                  {/* Vendor-level config UI */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>ElevenLabs TTS Model</Label>
+                      <Select value={batchTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, tts_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="eleven_flash_v2_5">eleven_flash_v2_5</SelectItem>
+                          <SelectItem value="eleven_multilingual_v2">eleven_multilingual_v2</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Label className="mt-2">ElevenLabs STT Model</Label>
+                      <Select value={batchTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, stt_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scribe_v1">scribe_v1</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Deepgram TTS Model</Label>
+                      <Select value={batchTestForm.models.deepgram.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, tts_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Label className="mt-2">Deepgram STT Model</Label>
+                      <Select value={batchTestForm.models.deepgram.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, stt_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nova-3">nova-3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Chained pairing config */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Chained: TTS Vendor</Label>
+                      <Select value={batchTestForm.chain.tts_vendor} onValueChange={(v)=>setBatchTestForm({...batchTestForm, chain:{...batchTestForm.chain, tts_vendor: v}})} disabled={batchTestForm.mode !== 'chained'}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
+                          <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Chained: STT Vendor</Label>
+                      <Select value={batchTestForm.chain.stt_vendor} onValueChange={(v)=>setBatchTestForm({...batchTestForm, chain:{...batchTestForm.chain, stt_vendor: v}})} disabled={batchTestForm.mode !== 'chained'}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
+                          <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                       <Label>Test Mode</Label>
                       <Select value={batchTestForm.mode} onValueChange={(value) => setBatchTestForm({...batchTestForm, mode: value})}>
                         <SelectTrigger className="mt-1">

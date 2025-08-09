@@ -13,6 +13,47 @@ import { Separator } from './components/ui/separator';
 import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker } from 'lucide-react';
 import './App.css';
 
+function ExportToolbar({ runs }) {
+  const API_BASE_URL = import.meta?.env?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+  const collectIds = () => {
+    const ids = [];
+    (runs || []).forEach((run) => (run.items || []).forEach((it) => ids.push(it.id)));
+    return ids;
+  };
+  const download = async (format, all=false) => {
+    try {
+      const body = all ? { format, all: true } : { format, run_item_ids: collectIds() };
+      const resp = await fetch(`${API_BASE_URL}/api/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) throw new Error('Export failed');
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `benchmark_export.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export error', e);
+      alert('Export failed');
+    }
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={() => download('csv', false)}>CSV (Selected)</Button>
+      <Button variant="outline" size="sm" onClick={() => download('csv', true)}>CSV (All)</Button>
+      <Button variant="outline" size="sm" onClick={() => download('pdf', false)}>PDF (Selected)</Button>
+      <Button variant="outline" size="sm" onClick={() => download('pdf', true)}>PDF (All)</Button>
+    </div>
+  );
+}
+
+
 const API_BASE_URL = import.meta?.env?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
 
 function App() {

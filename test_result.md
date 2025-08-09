@@ -315,8 +315,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Backend metrics testing completed - all 7 checks passed"
-    - "Audio duration and PDF export dependencies verified"
+    - "Fix Deepgram TTS speak 400 Bad Request by using correct model+voice parameters (aura-2 + thalia)"
+    - "Harden audio duration/RTF to avoid off metrics in isolated multi-vendor runs"
   stuck_tasks: ["Metrics anomaly: Isolated mode with multiple vendors shows incorrect Deepgram (second vendor) metrics. Investigate and fix duration/RTF/latency mixup."]
   test_all: false
   test_priority: "high_first"

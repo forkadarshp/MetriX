@@ -786,32 +786,45 @@ function App() {
                     </div>
 
                     <div>
-                      <Label>Vendors</Label>
-                      <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
-                          <label key={vendor} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={batchTestForm.vendors.includes(vendor)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setBatchTestForm({
-                                    ...batchTestForm,
-                                    vendors: [...batchTestForm.vendors, vendor]
-                                  });
-                                } else {
-                                  setBatchTestForm({
-                                    ...batchTestForm,
-                                    vendors: batchTestForm.vendors.filter(v => v !== vendor)
-                                  });
-                                }
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm capitalize">{vendor}</span>
-                          </label>
-                        ))}
-                      </div>
+                      <Label>Test Service (Isolated Mode)</Label>
+                      <Select value={batchTestForm.service} onValueChange={(v) => setBatchTestForm({...batchTestForm, service: v})} disabled={batchTestForm.mode !== 'isolated'}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tts">TTS</SelectItem>
+                          <SelectItem value="stt">STT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Vendors</Label>
+                    <div className="mt-1 space-y-2">
+                      {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
+                        <label key={vendor} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={batchTestForm.vendors.includes(vendor)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setBatchTestForm({
+                                  ...batchTestForm,
+                                  vendors: [...batchTestForm.vendors, vendor]
+                                });
+                              } else {
+                                setBatchTestForm({
+                                  ...batchTestForm,
+                                  vendors: batchTestForm.vendors.filter(v => v !== vendor)
+                                });
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="text-sm capitalize">{vendor}</span>
+                        </label>
+                      ))}
                     </div>
                   </div>
 

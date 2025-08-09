@@ -1067,24 +1067,7 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
     if stt_result.get("status") != "success":
         return
 
-    # Metrics and storage continue below unchanged
-    """Process chained mode testing (TTS -> STT)."""
-    cursor = conn.cursor()
-    # Choose vendors
-    tts_vendor = vendor if vendor in ["elevenlabs", "aws"] else "elevenlabs"
-    stt_vendor = vendor if vendor in ["deepgram", "aws"] else "deepgram"
-    # Step 1: TTS
-    tts_adapter = VENDOR_ADAPTERS[tts_vendor]["tts"]
-    tts_result = await tts_adapter.synthesize(text_input)
-    if tts_result["status"] != "success":
-        return
-    audio_path = tts_result["audio_path"]
-    # Step 2: STT
-    stt_adapter = VENDOR_ADAPTERS[stt_vendor]["stt"]
-    stt_result = await stt_adapter.transcribe(audio_path)
-    if stt_result["status"] != "success":
-        return
-    # Metrics
+    # Metrics and storage
     wer = calculate_wer(text_input, stt_result["transcript"])
     tts_latency = float(tts_result.get("latency") or 0.0)
     stt_latency = float(stt_result.get("latency") or 0.0)
@@ -1092,21 +1075,23 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
     duration = get_audio_duration_seconds(audio_path)
     tts_rtf = (tts_latency / duration) if duration > 0 else None
     stt_rtf = (stt_latency / duration) if duration > 0 else None
-    # Store results
+    
+    # Store results with correct vendor information
+    cursor = conn.cursor()
     cursor.execute(
         "UPDATE run_items SET transcript = ?, audio_path = ?, metrics_json = ? WHERE id = ?",
         (
             stt_result["transcript"],
             audio_path,
             json.dumps({
-            "service_type": "e2e",
-            "tts_vendor": tts_vendor,
-            "stt_vendor": stt_vendor,
-            "tts_model": (tts_result.get("metadata") or {}).get("model"),
-            "stt_model": (stt_result.get("metadata") or {}).get("model"),
-            "voice_id": (tts_result.get("metadata") or {}).get("voice_id"),
-            "language": (stt_result.get("metadata") or {}).get("language")
-        }),
+                "service_type": "e2e",
+                "tts_vendor": tts_vendor,
+                "stt_vendor": stt_vendor,
+                "tts_model": (tts_result.get("metadata") or {}).get("model"),
+                "stt_model": (stt_result.get("metadata") or {}).get("model"),
+                "voice_id": (tts_result.get("metadata") or {}).get("voice_id"),
+                "language": (stt_result.get("metadata") or {}).get("language")
+            }),
             item_id,
         ),
     )

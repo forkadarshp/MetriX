@@ -1,52 +1,694 @@
-import { useEffect } from "react";
-import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
+import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { Textarea } from './components/ui/textarea';
+import { Badge } from './components/ui/badge';
+import { Progress } from './components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
+import { Alert, AlertDescription } from './components/ui/alert';
+import { Separator } from './components/ui/separator';
+import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker } from 'lucide-react';
+import './App.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 
-const Home = () => {
-  const helloWorldApi = async () => {
+function App() {
+  const [dashboardStats, setDashboardStats] = useState({});
+  const [runs, setRuns] = useState([]);
+  const [scripts, setScripts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Form states
+  const [quickTestForm, setQuickTestForm] = useState({
+    text: 'Welcome to our banking services. How can I help you today?',
+    vendors: ['elevenlabs', 'deepgram'],
+    mode: 'isolated'
+  });
+  
+  const [batchTestForm, setBatchTestForm] = useState({
+    vendors: ['elevenlabs', 'deepgram'],
+    mode: 'isolated',
+    scriptIds: []
+  });
+
+  // Fetch functions
+  const fetchDashboardStats = useCallback(async () => {
     try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      const data = await response.json();
+      setDashboardStats(data);
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err);
+    }
+  }, []);
+
+  const fetchRuns = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/runs`);
+      if (!response.ok) throw new Error('Failed to fetch runs');
+      const data = await response.json();
+      setRuns(data.runs || []);
+    } catch (err) {
+      console.error('Error fetching runs:', err);
+    }
+  }, []);
+
+  const fetchScripts = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/scripts`);
+      if (!response.ok) throw new Error('Failed to fetch scripts');
+      const data = await response.json();
+      setScripts(data.scripts || []);
+    } catch (err) {
+      console.error('Error fetching scripts:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardStats();
+    fetchRuns();
+    fetchScripts();
+  }, [fetchDashboardStats, fetchRuns, fetchScripts]);
+
+  // Auto refresh dashboard stats every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeTab === 'dashboard') {
+        fetchDashboardStats();
+        fetchRuns();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [activeTab, fetchDashboardStats, fetchRuns]);
+
+  const handleQuickTest = async () => {
+    if (!quickTestForm.text.trim()) {
+      setError('Please enter text to test');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('text', quickTestForm.text);
+      formData.append('vendors', quickTestForm.vendors.join(','));
+      formData.append('mode', quickTestForm.mode);
+
+      const response = await fetch(`${API_BASE_URL}/api/runs/quick`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Failed to create test');
+      }
+
+      const result = await response.json();
+      
+      // Refresh runs and switch to results tab
+      setTimeout(() => {
+        fetchRuns();
+        setActiveTab('results');
+      }, 1000);
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
+  const handleBatchTest = async () => {
+    if (batchTestForm.scriptIds.length === 0) {
+      setError('Please select at least one script');
+      return;
+    }
 
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
+    setLoading(true);
+    setError(null);
+
+    try {
+      const runData = {
+        mode: batchTestForm.mode,
+        vendors: batchTestForm.vendors,
+        script_ids: batchTestForm.scriptIds
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/runs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(runData)
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || 'Failed to create batch test');
+      }
+
+      // Refresh runs and switch to results tab
+      setTimeout(() => {
+        fetchRuns();
+        setActiveTab('results');
+      }, 1000);
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
+      case 'running': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+      case 'failed': return 'bg-red-500/10 text-red-700 border-red-200';
+      default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
+    }
+  };
+
+  const formatLatency = (latency) => {
+    if (!latency) return 'N/A';
+    return `${(latency * 1000).toFixed(0)}ms`;
+  };
+
+  const formatAccuracy = (wer) => {
+    if (wer === null || wer === undefined) return 'N/A';
+    return `${((1 - wer) * 100).toFixed(1)}%`;
+  };
+
+  const StatCard = ({ icon: Icon, title, value, subtitle, trend }) => (
+    <Card className="relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full translate-x-16 -translate-y-16" />
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-blue-600" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
+        {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+        {trend && (
+          <div className="flex items-center mt-2">
+            <span className="text-xs text-emerald-600">↗ {trend}</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
-};
 
-function App() {
+  const RunResultCard = ({ run }) => {
+    const [expanded, setExpanded] = useState(false);
+
+    return (
+      <Card className="mb-4">
+        <CardHeader className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className={getStatusColor(run.status)}>
+                  {run.status}
+                </Badge>
+                <Badge variant="secondary">{run.mode}</Badge>
+              </div>
+              <div className="text-sm text-gray-500">
+                {new Date(run.started_at).toLocaleString()}
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-sm">
+                <span className="font-medium">{run.vendors?.length || 0}</span> vendors
+              </div>
+              <div className="text-sm">
+                <span className="font-medium">{run.items?.length || 0}</span> tests
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        
+        {expanded && (
+          <CardContent className="pt-0">
+            <div className="space-y-4">
+              {run.items?.map((item, idx) => (
+                <div key={item.id} className="border rounded-lg p-4 bg-gray-50/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      {item.vendor === 'elevenlabs' && <Speaker className="h-4 w-4 text-purple-600" />}
+                      {item.vendor === 'deepgram' && <Mic className="h-4 w-4 text-green-600" />}
+                      {item.vendor === 'aws' && <Zap className="h-4 w-4 text-orange-600" />}
+                      <span className="font-medium capitalize">{item.vendor}</span>
+                      <Badge variant="outline" className={getStatusColor(item.status)}>
+                        {item.status}
+                      </Badge>
+                    </div>
+                    {item.audio_path && (
+                      <Button variant="outline" size="sm">
+                        <Play className="h-3 w-3 mr-1" />
+                        Play
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="text-sm mb-3">
+                    <div className="font-medium text-gray-700 mb-1">Input:</div>
+                    <div className="text-gray-600 bg-white p-2 rounded border">
+                      {item.text_input}
+                    </div>
+                  </div>
+                  
+                  {item.transcript && (
+                    <div className="text-sm mb-3">
+                      <div className="font-medium text-gray-700 mb-1">Transcript:</div>
+                      <div className="text-gray-600 bg-white p-2 rounded border">
+                        {item.transcript}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {item.metrics_summary && (
+                    <div className="flex flex-wrap gap-2">
+                      {item.metrics_summary.split('|').map((metric, midx) => {
+                        const [name, value] = metric.split(':');
+                        let displayValue = value;
+                        
+                        if (name === 'wer') {
+                          displayValue = `${(parseFloat(value) * 100).toFixed(1)}% WER`;
+                        } else if (name === 'accuracy') {
+                          displayValue = `${parseFloat(value).toFixed(1)}% Acc`;
+                        } else if (name === 'latency' || name.includes('latency')) {
+                          displayValue = `${(parseFloat(value) * 1000).toFixed(0)}ms`;
+                        } else if (name === 'confidence') {
+                          displayValue = `${(parseFloat(value) * 100).toFixed(0)}% Conf`;
+                        }
+                        
+                        return (
+                          <Badge key={midx} variant="secondary" className="text-xs">
+                            {displayValue}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    );
+  };
+
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
+      {/* Header */}
+      <div className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">TTS/STT Benchmark</h1>
+                  <p className="text-sm text-gray-500">Speech Technology Performance Dashboard</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                <Activity className="h-3 w-3 mr-1" />
+                Live
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 bg-white/60 backdrop-blur-sm border border-gray-200">
+            <TabsTrigger value="dashboard" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="quick-test" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Zap className="h-4 w-4 mr-2" />
+              Quick Test
+            </TabsTrigger>
+            <TabsTrigger value="batch-test" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Target className="h-4 w-4 mr-2" />
+              Batch Test
+            </TabsTrigger>
+            <TabsTrigger value="results" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <Activity className="h-4 w-4 mr-2" />
+              Results
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard
+                icon={Target}
+                title="Total Runs"
+                value={dashboardStats.total_runs || 0}
+                subtitle="Test executions"
+              />
+              <StatCard
+                icon={Activity}
+                title="Success Rate"
+                value={`${dashboardStats.success_rate || 0}%`}
+                subtitle="Completed successfully"
+              />
+              <StatCard
+                icon={BarChart3}
+                title="Avg Accuracy"
+                value={`${dashboardStats.avg_accuracy || 0}%`}
+                subtitle="Speech recognition"
+              />
+              <StatCard
+                icon={Clock}
+                title="Avg Latency"
+                value={`${(dashboardStats.avg_latency * 1000 || 0).toFixed(0)}ms`}
+                subtitle="Processing time"
+              />
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest test runs and their performance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {runs.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No test runs yet. Start with a quick test!
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {runs.slice(0, 5).map((run) => (
+                      <div key={run.id} className="flex items-center justify-between p-3 bg-gray-50/50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <Badge variant="outline" className={getStatusColor(run.status)}>
+                            {run.status}
+                          </Badge>
+                          <div>
+                            <div className="font-medium text-sm">{run.mode} mode</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(run.started_at).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm">
+                          <span>{run.vendors?.length || 0} vendors</span>
+                          <span>{run.items?.length || 0} tests</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Quick Test Tab */}
+          <TabsContent value="quick-test" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Zap className="h-5 w-5 text-blue-600" />
+                  <span>Quick Test</span>
+                </CardTitle>
+                <CardDescription>
+                  Test a single phrase across multiple vendors and modes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="test-text">Test Text</Label>
+                    <Textarea
+                      id="test-text"
+                      placeholder="Enter text to test..."
+                      value={quickTestForm.text}
+                      onChange={(e) => setQuickTestForm({...quickTestForm, text: e.target.value})}
+                      rows={3}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Test Mode</Label>
+                      <Select value={quickTestForm.mode} onValueChange={(value) => setQuickTestForm({...quickTestForm, mode: value})}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="isolated">Isolated Mode</SelectItem>
+                          <SelectItem value="chained">Chained Mode</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Vendors</Label>
+                      <div className="mt-1 space-y-2">
+                        {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
+                          <label key={vendor} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={quickTestForm.vendors.includes(vendor)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setQuickTestForm({
+                                    ...quickTestForm,
+                                    vendors: [...quickTestForm.vendors, vendor]
+                                  });
+                                } else {
+                                  setQuickTestForm({
+                                    ...quickTestForm,
+                                    vendors: quickTestForm.vendors.filter(v => v !== vendor)
+                                  });
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm capitalize">{vendor}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <Alert className="border-red-200 bg-red-50">
+                      <AlertDescription className="text-red-700">{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button 
+                    onClick={handleQuickTest} 
+                    disabled={loading || quickTestForm.vendors.length === 0}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    {loading ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Running Test...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Zap className="h-4 w-4" />
+                        <span>Run Test</span>
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Batch Test Tab */}
+          <TabsContent value="batch-test" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Target className="h-5 w-5 text-green-600" />
+                  <span>Batch Test</span>
+                </CardTitle>
+                <CardDescription>
+                  Run tests using predefined script collections
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Test Mode</Label>
+                      <Select value={batchTestForm.mode} onValueChange={(value) => setBatchTestForm({...batchTestForm, mode: value})}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="isolated">Isolated Mode</SelectItem>
+                          <SelectItem value="chained">Chained Mode</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Vendors</Label>
+                      <div className="mt-1 space-y-2">
+                        {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
+                          <label key={vendor} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={batchTestForm.vendors.includes(vendor)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBatchTestForm({
+                                    ...batchTestForm,
+                                    vendors: [...batchTestForm.vendors, vendor]
+                                  });
+                                } else {
+                                  setBatchTestForm({
+                                    ...batchTestForm,
+                                    vendors: batchTestForm.vendors.filter(v => v !== vendor)
+                                  });
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm capitalize">{vendor}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Test Scripts</Label>
+                    <div className="mt-2 space-y-3">
+                      {scripts.map((script) => (
+                        <div key={script.id} className="border rounded-lg p-3">
+                          <label className="flex items-start space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={batchTestForm.scriptIds.includes(script.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBatchTestForm({
+                                    ...batchTestForm,
+                                    scriptIds: [...batchTestForm.scriptIds, script.id]
+                                  });
+                                } else {
+                                  setBatchTestForm({
+                                    ...batchTestForm,
+                                    scriptIds: batchTestForm.scriptIds.filter(id => id !== script.id)
+                                  });
+                                }
+                              }}
+                              className="mt-1 rounded border-gray-300"
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium">{script.name}</div>
+                              <div className="text-sm text-gray-500 mt-1">{script.description}</div>
+                              <div className="flex items-center space-x-2 mt-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  {script.item_count} items
+                                </Badge>
+                                {script.tags && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {script.tags}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {error && (
+                    <Alert className="border-red-200 bg-red-50">
+                      <AlertDescription className="text-red-700">{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button 
+                    onClick={handleBatchTest} 
+                    disabled={loading || batchTestForm.vendors.length === 0 || batchTestForm.scriptIds.length === 0}
+                    className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                  >
+                    {loading ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Running Batch Test...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Target className="h-4 w-4" />
+                        <span>Run Batch Test</span>
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Results Tab */}
+          <TabsContent value="results" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="h-5 w-5 text-purple-600" />
+                    <span>Test Results</span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={fetchRuns}>
+                    <Activity className="h-3 w-3 mr-1" />
+                    Refresh
+                  </Button>
+                </CardTitle>
+                <CardDescription>
+                  Detailed results from all test runs
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {runs.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <h3 className="text-lg font-medium mb-2">No results yet</h3>
+                    <p>Run your first test to see results here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {runs.map((run) => (
+                      <RunResultCard key={run.id} run={run} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

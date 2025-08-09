@@ -508,8 +508,8 @@ deepgram_adapter = DeepgramAdapter(DEEPGRAM_API_KEY)
 aws_adapter = AWSAdapter(AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION)
 
 VENDOR_ADAPTERS = {
-    "elevenlabs": {"tts": elevenlabs_adapter, "stt": None},
-    "deepgram": {"tts": None, "stt": deepgram_adapter},
+    "elevenlabs": {"tts": elevenlabs_adapter, "stt": elevenlabs_adapter},
+    "deepgram": {"tts": deepgram_adapter, "stt": deepgram_adapter},
     "aws": {"tts": aws_adapter, "stt": aws_adapter}
 }
 

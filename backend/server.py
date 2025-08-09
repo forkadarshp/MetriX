@@ -295,8 +295,8 @@ class ElevenLabsAdapter(VendorAdapter):
                     file=audio_file,
                     model_id=model_id,
                 )
-            transcript = result.get('text') or result.get('transcript') or ''
-            confidence = result.get('confidence', 0.0)
+            transcript = result.text if hasattr(result, 'text') else str(result)
+            confidence = getattr(result, 'confidence', 0.95)  # Default confidence if not available
             return {
                 "transcript": transcript,
                 "confidence": confidence,

@@ -205,13 +205,13 @@ class VendorAdapter:
         raise NotImplementedError
 
 class ElevenLabsAdapter(VendorAdapter):
-    """ElevenLabs TTS adapter using dummy implementation."""
+    """ElevenLabs TTS/STT adapter."""
     
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.is_dummy = api_key == "dummy_eleven_key"
     
-    async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", **params) -> Dict[str, Any]:
+    async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_multilingual_v2", **params) -> Dict[str, Any]:
         """Synthesize text using ElevenLabs TTS."""
         start_time = time.time()
         
@@ -232,7 +232,7 @@ class ElevenLabsAdapter(VendorAdapter):
                 "voice": voice,
                 "latency": latency,
                 "status": "success",
-                "metadata": {"model": "eleven_multilingual_v2", "voice_id": voice}
+                "metadata": {"model": model_id, "voice_id": voice}
             }
         else:
             # Real implementation
@@ -245,7 +245,7 @@ class ElevenLabsAdapter(VendorAdapter):
                 audio_generator = client.text_to_speech.convert(
                     text=text,
                     voice_id=voice,
-                    model_id="eleven_multilingual_v2"
+                    model_id=model_id
                 )
                 
                 # Save audio file
@@ -263,11 +263,46 @@ class ElevenLabsAdapter(VendorAdapter):
                     "voice": voice,
                     "latency": latency,
                     "status": "success",
-                    "metadata": {"model": "eleven_multilingual_v2", "voice_id": voice}
+                    "metadata": {"model": model_id, "voice_id": voice}
                 }
             except Exception as e:
                 logger.error(f"ElevenLabs synthesis error: {e}")
                 return {"status": "error", "error": str(e), "latency": time.time() - start_time}
+
+    async def transcribe(self, audio_path: str, model_id: str = "scribe_v1", **params) -> Dict[str, Any]:
+        """Transcribe audio using ElevenLabs STT (Scribe)."""
+        start_time = time.time()
+        if self.is_dummy:
+            await asyncio.sleep(0.3)
+            return {
+                "transcript": "Dummy transcription from ElevenLabs Scribe.",
+                "confidence": 0.92,
+                "vendor": "elevenlabs",
+                "latency": time.time() - start_time,
+                "status": "success",
+                "metadata": {"model": model_id}
+            }
+        try:
+            from elevenlabs import ElevenLabs
+            client = ElevenLabs(api_key=self.api_key)
+            with open(audio_path, 'rb') as audio_file:
+                result = client.speech_to_text.convert(
+                    audio=audio_file,
+                    model_id=model_id,
+                )
+            transcript = result.get('text') or result.get('transcript') or ''
+            confidence = result.get('confidence', 0.0)
+            return {
+                "transcript": transcript,
+                "confidence": confidence,
+                "vendor": "elevenlabs",
+                "latency": time.time() - start_time,
+                "status": "success",
+                "metadata": {"model": model_id}
+            }
+        except Exception as e:
+            logger.error(f"ElevenLabs transcription error: {e}")
+            return {"status": "error", "error": str(e), "latency": time.time() - start_time}
 
 class DeepgramAdapter(VendorAdapter):
     """Deepgram STT adapter using dummy implementation."""

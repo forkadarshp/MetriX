@@ -832,6 +832,10 @@ function App() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-gray-600">Latest test runs and their performance</div>
+                  <ExportToolbar runs={runs} />
+                </div>
                 {runs.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />

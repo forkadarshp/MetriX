@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 class MetricsAPITester:
-    def __init__(self, base_url: str = "https://957244fc-24c8-491d-8cf5-b51c408690f9.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://da84d7a4-c31b-45c8-a5c8-f35d08cf3b80.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0

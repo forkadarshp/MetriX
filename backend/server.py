@@ -956,7 +956,15 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
         (
             stt_result["transcript"],
             audio_path,
-            json.dumps({"tts_vendor": tts_vendor, "stt_vendor": stt_vendor, "service_type": "e2e"}),
+            json.dumps({
+            "service_type": "e2e",
+            "tts_vendor": tts_vendor,
+            "stt_vendor": stt_vendor,
+            "tts_model": (tts_result.get("metadata") or {}).get("model"),
+            "stt_model": (stt_result.get("metadata") or {}).get("model"),
+            "voice_id": (tts_result.get("metadata") or {}).get("voice_id"),
+            "language": (stt_result.get("metadata") or {}).get("language")
+        }),
             item_id,
         ),
     )

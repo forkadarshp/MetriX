@@ -369,7 +369,7 @@ class DeepgramAdapter(VendorAdapter):
                 logger.error(f"Deepgram transcription error: {e}")
                 return {"status": "error", "error": str(e), "latency": time.time() - req_time}
 
-    async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "mp3", sample_rate: int = 24000, **params) -> Dict[str, Any]:
+    async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "wav", sample_rate: int = 24000, **params) -> Dict[str, Any]:
         """Synthesize speech using Deepgram Speak API (Aura 2).
         Note: Use a containerized format (mp3) to ensure proper duration parsing across environments.
         """

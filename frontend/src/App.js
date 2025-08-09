@@ -85,6 +85,7 @@ function App() {
 
   useEffect(() => {
     fetchDashboardStats();
+    fetchInsights();
     fetchRuns();
     fetchScripts();
   }, [fetchDashboardStats, fetchRuns, fetchScripts]);

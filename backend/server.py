@@ -236,24 +236,21 @@ class ElevenLabsAdapter(VendorAdapter):
         else:
             # Real implementation
             try:
-                from elevenlabs.client import AsyncElevenLabs
+                from elevenlabs import generate, save
                 
-                client = AsyncElevenLabs(api_key=self.api_key)
-                
-                # Generate audio
-                audio_generator = await client.text_to_speech.convert(
+                # Generate audio using the synchronous API
+                audio = generate(
                     text=text,
-                    voice_id=voice,
-                    model_id="eleven_multilingual_v2"
+                    voice=voice,
+                    model="eleven_multilingual_v2",
+                    api_key=self.api_key
                 )
                 
                 # Save audio file
                 audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
                 audio_path = f"storage/audio/{audio_filename}"
                 
-                with open(audio_path, "wb") as f:
-                    async for chunk in audio_generator:
-                        f.write(chunk)
+                save(audio, audio_path)
                 
                 latency = time.time() - start_time
                 return {

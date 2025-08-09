@@ -819,9 +819,18 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             if tts_result["status"] == "success":
                 audio_path = tts_result["audio_path"]
                 # Store audio path
+                # Enrich metrics_json with vendor/model info
+                tts_meta = tts_result.get("metadata", {})
+                metrics_meta = {
+                    "service_type": "tts",
+                    "vendor": vendor,
+                    "tts_vendor": vendor,
+                    "tts_model": tts_meta.get("model"),
+                    "voice_id": tts_meta.get("voice_id")
+                }
                 cursor.execute(
-                    "UPDATE run_items SET audio_path = ? WHERE id = ?",
-                    (audio_path, item_id),
+                    "UPDATE run_items SET audio_path = ?, metrics_json = ? WHERE id = ?",
+                    (audio_path, json.dumps(metrics_meta), item_id),
                 )
                 # Compute audio duration and RTF
                 duration = get_audio_duration_seconds(audio_path)

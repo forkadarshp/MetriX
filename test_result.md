@@ -218,6 +218,39 @@ backend:
         comment: "Added mutagen and reportlab to requirements to enable MP3 duration and PDF export. Installing and restarting backend next."
 
 frontend:
+  - task: "Config-driven vendor/service selection"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Verified new config schema honored: isolated service=tts assessed via Deepgram STT; chained chain.tts_vendor/deepgram + chain.stt_vendor/elevenlabs pairing respected with models."
+  - task: "Isolated TTS auto-assessment via Deepgram nova-3"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Isolated TTS now stores tts metrics and evaluates WER/accuracy/confidence via Deepgram STT by default."
+  - task: "Chained pairing via UI-config"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Chained mode uses chain.tts_vendor and chain.stt_vendor from config; metrics_json annotated correctly and latency metrics present."
   - task: "React Dashboard UI"
     implemented: true
     working: true

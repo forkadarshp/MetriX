@@ -876,9 +876,26 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 stt_latency = float(stt_result.get("latency") or 0.0)
                 stt_rtf = (stt_latency / duration) if duration > 0 else None
                 # Store results
+                # Enrich metrics_json with stt vendor/model info
+                existing_meta = {}
+                try:
+                    cursor.execute("SELECT metrics_json FROM run_items WHERE id = ?", (item_id,))
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        existing_meta = json.loads(row[0])
+                except Exception:
+                    existing_meta = {}
+                stt_meta = stt_result.get("metadata", {})
+                merged_meta = {**existing_meta, **{
+                    "service_type": "stt",
+                    "vendor": vendor,
+                    "stt_vendor": vendor,
+                    "stt_model": stt_meta.get("model"),
+                    "language": stt_meta.get("language")
+                }}
                 cursor.execute(
-                    "UPDATE run_items SET transcript = ?, audio_path = ? WHERE id = ?",
-                    (stt_result["transcript"], audio_path, item_id),
+                    "UPDATE run_items SET transcript = ?, audio_path = ?, metrics_json = ? WHERE id = ?",
+                    (stt_result["transcript"], audio_path, json.dumps(merged_meta), item_id),
                 )
                 metrics = [
                     {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.1, "pass_fail": "pass" if wer <= 0.1 else "fail"},

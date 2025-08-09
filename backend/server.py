@@ -369,13 +369,15 @@ class DeepgramAdapter(VendorAdapter):
                 logger.error(f"Deepgram transcription error: {e}")
                 return {"status": "error", "error": str(e), "latency": time.time() - req_time}
 
-    async def synthesize(self, text: str, model: str = "aura-2-thalia-en", encoding: str = "linear16", sample_rate: int = 24000, **params) -> Dict[str, Any]:
-        """Synthesize speech using Deepgram Speak API (Aura 2)."""
+    async def synthesize(self, text: str, model: str = "aura-2-thalia-en", container: str = "mp3", sample_rate: int = 24000, **params) -> Dict[str, Any]:
+        """Synthesize speech using Deepgram Speak API (Aura 2).
+        Note: Use a containerized format (mp3) to ensure proper duration parsing across environments.
+        """
         req_time = time.time()
         ttfb = None
         if self.is_dummy:
             await asyncio.sleep(0.4)
-            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.wav"
+            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{ 'mp3' if container == 'mp3' else 'wav' }"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
                 f.write(b"dummy_deepgram_tts_audio")
@@ -384,7 +386,7 @@ class DeepgramAdapter(VendorAdapter):
                 "vendor": "deepgram",
                 "latency": time.time() - req_time,
                 "status": "success",
-                "metadata": {"model": model, "encoding": encoding, "sample_rate": sample_rate}
+                "metadata": {"model": model, "container": container, "sample_rate": sample_rate}
             }
         try:
             url = "https://api.deepgram.com/v1/speak"
@@ -392,13 +394,15 @@ class DeepgramAdapter(VendorAdapter):
                 "Authorization": f"Token {self.api_key}",
                 "Content-Type": "application/json"
             }
+            # Request a proper containerized output (mp3 by default)
             params = {
                 "model": model,
-                "encoding": encoding,
+                "container": container,
                 "sample_rate": str(sample_rate)
             }
             payload = {"text": text}
-            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.wav"
+            file_ext = "mp3" if container == "mp3" else "wav"
+            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{file_ext}"
             audio_path = f"storage/audio/{audio_filename}"
             file_size = 0
             async with httpx.AsyncClient() as client:
@@ -418,7 +422,7 @@ class DeepgramAdapter(VendorAdapter):
                 "latency": time.time() - req_time,
                 "ttfb": ttfb,
                 "status": "success",
-                "metadata": {"model": model, "encoding": encoding, "sample_rate": sample_rate, "file_size": file_size}
+                "metadata": {"model": model, "container": container, "sample_rate": sample_rate, "file_size": file_size}
             }
         except Exception as e:
             logger.error(f"Deepgram TTS error: {e}")

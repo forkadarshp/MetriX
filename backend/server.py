@@ -305,13 +305,13 @@ class ElevenLabsAdapter(VendorAdapter):
             return {"status": "error", "error": str(e), "latency": time.time() - start_time}
 
 class DeepgramAdapter(VendorAdapter):
-    """Deepgram STT adapter using dummy implementation."""
+    """Deepgram STT/TTS adapter."""
     
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.is_dummy = api_key == "dummy_deepgram_key"
     
-    async def transcribe(self, audio_path: str, **params) -> Dict[str, Any]:
+    async def transcribe(self, audio_path: str, model: str = "nova-3", **params) -> Dict[str, Any]:
         """Transcribe audio using Deepgram STT."""
         start_time = time.time()
         
@@ -337,7 +337,7 @@ class DeepgramAdapter(VendorAdapter):
                 "vendor": "deepgram",
                 "latency": latency,
                 "status": "success",
-                "metadata": {"model": "nova-3", "language": "en-US"}
+                "metadata": {"model": model, "language": "en-US"}
             }
         else:
             # Real implementation
@@ -347,7 +347,7 @@ class DeepgramAdapter(VendorAdapter):
                 client = DeepgramClient(self.api_key)
                 
                 options = PrerecordedOptions(
-                    model="nova-2",
+                    model=model,
                     smart_format=True,
                     punctuate=True,
                     language="en-US"
@@ -374,11 +374,67 @@ class DeepgramAdapter(VendorAdapter):
                     "vendor": "deepgram",
                     "latency": latency,
                     "status": "success",
-                    "metadata": {"model": "nova-2", "language": "en-US"}
+                    "metadata": {"model": model, "language": "en-US"}
                 }
             except Exception as e:
                 logger.error(f"Deepgram transcription error: {e}")
                 return {"status": "error", "error": str(e), "latency": time.time() - start_time}
+
+    async def synthesize(self, text: str, model: str = "aura-2-thalia-en", encoding: str = "linear16", sample_rate: int = 24000, **params) -> Dict[str, Any]:
+        """Synthesize speech using Deepgram Speak API (Aura 2)."""
+        start_time = time.time()
+        ttfb = None
+        if self.is_dummy:
+            await asyncio.sleep(0.4)
+            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.wav"
+            audio_path = f"storage/audio/{audio_filename}"
+            with open(audio_path, "wb") as f:
+                f.write(b"dummy_deepgram_tts_audio")
+            return {
+                "audio_path": audio_path,
+                "vendor": "deepgram",
+                "latency": time.time() - start_time,
+                "status": "success",
+                "metadata": {"model": model, "encoding": encoding, "sample_rate": sample_rate}
+            }
+        try:
+            url = "https://api.deepgram.com/v1/speak"
+            headers = {
+                "Authorization": f"Token {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            params = {
+                "model": model,
+                "encoding": encoding,
+                "sample_rate": str(sample_rate)
+            }
+            payload = {"text": text}
+            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.wav"
+            audio_path = f"storage/audio/{audio_filename}"
+            file_size = 0
+            async with httpx.AsyncClient() as client:
+                async with client.stream("POST", url, headers=headers, params=params, json=payload, timeout=60.0) as resp:
+                    if resp.status_code != 200:
+                        error_text = await resp.aread()
+                        return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": time.time() - start_time}
+                    async with aiofiles.open(audio_path, 'wb') as f:
+                        async for chunk in resp.aiter_bytes(chunk_size=1024):
+                            if ttfb is None:
+                                ttfb = time.time() - start_time
+                            await f.write(chunk)
+                            file_size += len(chunk)
+            latency = time.time() - start_time
+            return {
+                "audio_path": audio_path,
+                "vendor": "deepgram",
+                "latency": latency,
+                "ttfb": ttfb or latency,
+                "status": "success",
+                "metadata": {"model": model, "encoding": encoding, "sample_rate": sample_rate, "file_size": file_size}
+            }
+        except Exception as e:
+            logger.error(f"Deepgram TTS error: {e}")
+            return {"status": "error", "error": str(e), "latency": time.time() - start_time}
 
 class AWSAdapter(VendorAdapter):
     """AWS Polly/Transcribe adapter using dummy implementation."""

@@ -935,7 +935,7 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
         ),
     )
     metrics = [
-        {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.15, "pass_fail": "pass" if wer &lt;= 0.15 else "fail"},
+        {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.15, "pass_fail": "pass" if wer <= 0.15 else "fail"},
         {"name": "e2e_latency", "value": total_latency, "unit": "seconds"},
         {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
         {"name": "stt_latency", "value": stt_latency, "unit": "seconds"},
@@ -1184,13 +1184,13 @@ async def export_results(payload: Dict[str, Any]):
                 for chunk in [line[i:i+110] for i in range(0, len(line), 110)]:
                     c.drawString(x_margin, y, chunk)
                     y -= 12
-                    if y &lt; 0.75 * inch:
+                    if y < 0.75 * inch:
                         c.showPage()
                         c.setFont("Helvetica", 9)
                         y = height - 0.75 * inch
                 # Next item spacing
                 y -= 6
-                if y &lt; 0.75 * inch:
+                if y < 0.75 * inch:
                     c.showPage()
                     c.setFont("Helvetica", 9)
                     y = height - 0.75 * inch

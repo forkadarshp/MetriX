@@ -401,11 +401,22 @@ class DeepgramAdapter(VendorAdapter):
             else:
                 combined_model = model
             
-            params = {
-                "model": combined_model,
-                "container": container,
-                "sample_rate": str(sample_rate)
-            }
+            # Deepgram API: For WAV use encoding=linear16&container=wav, for MP3 use encoding=mp3&bit_rate
+            if container == "wav":
+                params = {
+                    "model": combined_model,
+                    "encoding": "linear16",
+                    "container": "wav",
+                    "sample_rate": str(sample_rate)
+                }
+            else:
+                # Default to MP3 with bitrate
+                params = {
+                    "model": combined_model,
+                    "encoding": "mp3",
+                    "bit_rate": "48000"  # 48kbps default
+                }
+                container = "mp3"  # Override for file extension
             payload = {"text": text}
             file_ext = "wav" if container == "wav" else "ogg"
             audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{file_ext}"

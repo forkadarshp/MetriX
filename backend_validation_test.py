@@ -15,7 +15,7 @@ import os
 from typing import Dict, Any, Optional
 
 class BackendValidationTester:
-    def __init__(self, base_url: str = "https://9a991c35-9650-45dc-b4aa-b26c7256412f.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://40c9ba12-d9c3-4ae1-b1cb-74bd5c38a55c.preview.emergentagent.com"):
         self.base_url = base_url
         self.test_results = []
         self.created_run_id = None

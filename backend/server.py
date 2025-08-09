@@ -1028,6 +1028,40 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
     conn.commit()
 
 async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn):
+    cfg = _get_run_config_for_item(conn, item_id)
+    # resolve pairing: cfg.chain could contain tts_vendor, stt_vendor, models
+    chain = cfg.get("chain") or {}
+    tts_vendor = (chain.get("tts_vendor") or vendor) if vendor in VENDOR_ADAPTERS else (chain.get("tts_vendor") or "elevenlabs")
+    stt_vendor = chain.get("stt_vendor") or (vendor if vendor in VENDOR_ADAPTERS else "deepgram")
+
+    def pick_models(vendor_name: str, svc: str) -> Dict[str, Any]:
+        models = (cfg.get("models") or {}).get(vendor_name, {})
+        if vendor_name == "elevenlabs" and svc == "tts":
+            return {"model_id": models.get("tts_model") or "eleven_flash_v2_5", "voice": models.get("voice_id") or "21m00Tcm4TlvDq8ikWAM"}
+        if vendor_name == "elevenlabs" and svc == "stt":
+            return {"model_id": models.get("stt_model") or "scribe_v1"}
+        if vendor_name == "deepgram" and svc == "stt":
+            return {"model": models.get("stt_model") or "nova-3"}
+        if vendor_name == "deepgram" and svc == "tts":
+            return {"model": models.get("tts_model") or "aura-2-thalia-en"}
+        return {}
+
+    # Step 1: TTS
+    tts_adapter = VENDOR_ADAPTERS[tts_vendor]["tts"]
+    tts_params = pick_models(tts_vendor, "tts")
+    tts_result = await tts_adapter.synthesize(text_input, **tts_params)
+    if tts_result.get("status") != "success":
+        return
+    audio_path = tts_result["audio_path"]
+
+    # Step 2: STT
+    stt_adapter = VENDOR_ADAPTERS[stt_vendor]["stt"]
+    stt_params = pick_models(stt_vendor, "stt")
+    stt_result = await stt_adapter.transcribe(audio_path, **stt_params)
+    if stt_result.get("status") != "success":
+        return
+
+    # Metrics and storage continue below unchanged
     """Process chained mode testing (TTS -> STT)."""
     cursor = conn.cursor()
     # Choose vendors

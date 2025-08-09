@@ -211,6 +211,66 @@ function App() {
   const RunResultCard = ({ run }) => {
     const [expanded, setExpanded] = useState(false);
 
+    const renderServiceBadge = (item) => {
+      const service = item.transcript && item.audio_path
+        ? 'E2E'
+        : item.transcript
+        ? 'STT'
+        : item.audio_path
+        ? 'TTS'
+        : 'Unknown';
+      const color = service === 'E2E' ? 'bg-indigo-500/10 text-indigo-700 border-indigo-200'
+        : service === 'STT' ? 'bg-green-500/10 text-green-700 border-green-200'
+        : service === 'TTS' ? 'bg-purple-500/10 text-purple-700 border-purple-200'
+        : 'bg-gray-500/10 text-gray-700 border-gray-200';
+      return <Badge variant="outline" className={color}>{service}</Badge>;
+    };
+
+    const MetricBadge = ({ name, value }) => {
+      const num = parseFloat(value);
+      const friendly = (label, val) => (
+        <Badge variant="secondary" className="text-xs">{label}: {val}</Badge>
+      );
+      if (name === 'wer') return friendly('WER', `${(num * 100).toFixed(1)}%`);
+      if (name === 'accuracy') return friendly('Accuracy', `${num.toFixed(1)}%`);
+      if (name === 'confidence') return friendly('Confidence', `${(num * 100).toFixed(0)}%`);
+      if (name === 'e2e_latency') return friendly('E2E Latency', `${(num * 1000).toFixed(0)}ms`);
+      if (name === 'tts_latency') return friendly('TTS Latency', `${(num * 1000).toFixed(0)}ms`);
+      if (name === 'stt_latency') return friendly('STT Latency', `${(num * 1000).toFixed(0)}ms`);
+      if (name === 'latency') return friendly('Latency', `${(num * 1000).toFixed(0)}ms`);
+      if (name === 'audio_duration') return friendly('Audio', `${num.toFixed(2)}s`);
+      return friendly(name, isNaN(num) ? value : num.toFixed(3));
+    };
+
+    const AudioControls = ({ item }) => {
+      const [playing, setPlaying] = useState(false);
+      const audioRef = React.useRef(null);
+      if (!item.audio_path) return null;
+      const filename = String(item.audio_path).split('/').pop();
+      const src = `${API_BASE_URL}/api/audio/${filename}`;
+
+      const togglePlay = () => {
+        const el = audioRef.current;
+        if (!el) return;
+        if (playing) {
+          el.pause();
+          setPlaying(false);
+        } else {
+          el.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+        }
+      };
+
+      return (
+        <div className="flex items-center space-x-2">
+          <audio ref={audioRef} src={src} onEnded={() => setPlaying(false)} preload="none" />
+          <Button variant="outline" size="sm" onClick={togglePlay}>
+            {playing ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+            {playing ? 'Pause' : 'Play'}
+          </Button>
+        </div>
+      );
+    };
+
     return (
       <Card className="mb-4">
         <CardHeader className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
@@ -248,16 +308,12 @@ function App() {
                       {item.vendor === 'deepgram' && <Mic className="h-4 w-4 text-green-600" />}
                       {item.vendor === 'aws' && <Zap className="h-4 w-4 text-orange-600" />}
                       <span className="font-medium capitalize">{item.vendor}</span>
+                      {renderServiceBadge(item)}
                       <Badge variant="outline" className={getStatusColor(item.status)}>
                         {item.status}
                       </Badge>
                     </div>
-                    {item.audio_path && (
-                      <Button variant="outline" size="sm">
-                        <Play className="h-3 w-3 mr-1" />
-                        Play
-                      </Button>
-                    )}
+                    <AudioControls item={item} />
                   </div>
                   
                   <div className="text-sm mb-3">
@@ -280,22 +336,8 @@ function App() {
                     <div className="flex flex-wrap gap-2">
                       {item.metrics_summary.split('|').map((metric, midx) => {
                         const [name, value] = metric.split(':');
-                        let displayValue = value;
-                        
-                        if (name === 'wer') {
-                          displayValue = `${(parseFloat(value) * 100).toFixed(1)}% WER`;
-                        } else if (name === 'accuracy') {
-                          displayValue = `${parseFloat(value).toFixed(1)}% Acc`;
-                        } else if (name === 'latency' || name.includes('latency')) {
-                          displayValue = `${(parseFloat(value) * 1000).toFixed(0)}ms`;
-                        } else if (name === 'confidence') {
-                          displayValue = `${(parseFloat(value) * 100).toFixed(0)}% Conf`;
-                        }
-                        
                         return (
-                          <Badge key={midx} variant="secondary" className="text-xs">
-                            {displayValue}
-                          </Badge>
+                          <MetricBadge key={midx} name={name} value={value} />
                         );
                       })}
                     </div>

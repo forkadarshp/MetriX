@@ -15,6 +15,10 @@ from datetime import datetime, timedelta
 import logging
 from pathlib import Path
 import traceback
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

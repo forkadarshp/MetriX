@@ -148,23 +148,29 @@ backend:
         comment: "END-TO-END PIPELINE WORKING! TTS→STT chain: 'The quick brown fox...' → ElevenLabs → Deepgram → 'The quick brown fox...'. WER: 11.1% (PASSED), E2E latency: 1.22s, confidence: 99.97%"
   - task: "Deepgram TTS (Aura 2)"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "REAL API WORKING! Deepgram TTS (Aura 2) successfully generating audio files. Tested with 'This is a detailed test of Deepgram Aura 2 text to speech' - generated 48,110 bytes audio/mpeg file. Streaming implementation with TTFB tracking working correctly."
       - working: "needs_testing"
         agent: "main"
         comment: "Implemented Deepgram Speak API streaming with TTFB + total time, saved to storage/audio."
   - task: "ElevenLabs STT (Scribe)"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "REAL API WORKING! ElevenLabs STT (Scribe) successfully transcribing audio. Tested with 'Testing ElevenLabs Scribe transcription' - returned 'Testing 11 labs scribe transcription.' showing real API processing with minor transcription variations typical of real STT."
       - working: "needs_testing"
         agent: "main"
         comment: "Added ElevenLabs Scribe transcription via SDK client.speech_to_text.convert(model_id=scribe_v1)."

@@ -194,6 +194,12 @@ class RunCreate(BaseModel):
     text_inputs: Optional[List[str]] = None
     script_ids: Optional[List[str]] = None
 
+class QuickRunForm(BaseModel):
+    text: str
+    vendors: List[str]
+    mode: Literal["isolated", "chained"]
+    config: Optional[Dict[str, Any]] = {}
+
 class MetricResult(BaseModel):
     name: str
     value: float

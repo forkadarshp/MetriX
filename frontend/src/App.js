@@ -436,6 +436,32 @@ function App() {
                 <CardDescription>Latest test runs and their performance</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Label>Vendor</Label>
+                    <Select value={filters.vendor} onValueChange={(v) => setFilters({ ...filters, vendor: v })}>
+                      <SelectTrigger className="w-40"><SelectValue placeholder="Vendor" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
+                        <SelectItem value="deepgram">Deepgram</SelectItem>
+                        <SelectItem value="aws">AWS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Label>Service</Label>
+                    <Select value={filters.service} onValueChange={(v) => setFilters({ ...filters, service: v })}>
+                      <SelectTrigger className="w-40"><SelectValue placeholder="Service" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="tts">TTS</SelectItem>
+                        <SelectItem value="stt">STT</SelectItem>
+                        <SelectItem value="e2e">E2E</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 {runs.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     No test runs yet. Start with a quick test!

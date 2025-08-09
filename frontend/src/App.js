@@ -616,7 +616,7 @@ function App() {
                           const isSTT = it.transcript && !it.audio_path; // rare in our pipeline
                           const isE2E = it.audio_path && it.transcript;
                           const serviceOk = (filters.service === 'tts' && isTTS) || (filters.service === 'stt' && isSTT) || (filters.service === 'e2e' && isE2E);
-                          return vendorOk &amp;&amp; serviceOk;
+                          return vendorOk && serviceOk;
                         })
                       }))
                       .filter((run) => run.items?.length &gt; 0)

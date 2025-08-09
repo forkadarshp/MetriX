@@ -418,7 +418,7 @@ class DeepgramAdapter(VendorAdapter):
                 }
                 container = "mp3"  # Override for file extension
             payload = {"text": text}
-            file_ext = "wav" if container == "wav" else "ogg"
+            file_ext = "wav" if container == "wav" else "mp3"
             audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{file_ext}"
             audio_path = f"storage/audio/{audio_filename}"
             file_size = 0

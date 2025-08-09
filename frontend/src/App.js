@@ -468,7 +468,22 @@ function App() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {runs.slice(0, 5).map((run) => (
+                    {runs
+                      .map((run) => ({
+                        ...run,
+                        items: (run.items || []).filter((it) => {
+                          const vendorOk = filters.vendor === 'all' || it.vendor === filters.vendor;
+                          if (filters.service === 'all') return vendorOk;
+                          const isTTS = it.audio_path && !it.transcript;
+                          const isSTT = it.transcript && !it.audio_path; // rare in our pipeline
+                          const isE2E = it.audio_path && it.transcript;
+                          const serviceOk = (filters.service === 'tts' && isTTS) || (filters.service === 'stt' && isSTT) || (filters.service === 'e2e' && isE2E);
+                          return vendorOk && serviceOk;
+                        })
+                      }))
+                      .filter((run) => run.items?.length > 0)
+                      .slice(0, 5)
+                      .map((run) => (
                       <div key={run.id} className="flex items-center justify-between p-3 bg-gray-50/50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           <Badge variant="outline" className={getStatusColor(run.status)}>

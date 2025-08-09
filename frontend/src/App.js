@@ -70,7 +70,13 @@ function App() {
   const [quickTestForm, setQuickTestForm] = useState({
     text: 'Welcome to our banking services. How can I help you today?',
     vendors: ['elevenlabs', 'deepgram'],
-    mode: 'isolated'
+    mode: 'isolated',
+    service: 'tts',
+    models: {
+      elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
+      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' }
+    },
+    chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
   
   const [batchTestForm, setBatchTestForm] = useState({

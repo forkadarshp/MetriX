@@ -889,72 +889,96 @@ def _get_run_config_for_item(conn, item_id: str) -> Dict[str, Any]:
 async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn):
     """Process isolated mode testing."""
     cursor = conn.cursor()
-    if vendor in ["elevenlabs", "aws"]:
-        # TTS testing only
+    cfg = _get_run_config_for_item(conn, item_id)
+    service = (cfg.get("service") or ("tts" if vendor in ["elevenlabs", "aws"] else "stt")).lower()
+
+    # Helper: choose model per vendor/service
+    def pick_models(vendor_name: str, svc: str) -> Dict[str, Any]:
+        models = (cfg.get("models") or {}).get(vendor_name, {})
+        if vendor_name == "elevenlabs" and svc == "tts":
+            return {"model_id": models.get("tts_model") or "eleven_flash_v2_5", "voice": models.get("voice_id") or "21m00Tcm4TlvDq8ikWAM"}
+        if vendor_name == "elevenlabs" and svc == "stt":
+            return {"model_id": models.get("stt_model") or "scribe_v1"}
+        if vendor_name == "deepgram" and svc == "stt":
+            return {"model": models.get("stt_model") or "nova-3"}
+        if vendor_name == "deepgram" and svc == "tts":
+            return {"model": models.get("tts_model") or "aura-2-thalia-en"}
+        return {}
+
+    if service == "tts":
+        # TTS testing only, but assess using default STT (Deepgram nova-3)
         adapter = VENDOR_ADAPTERS[vendor]["tts"]
-        if adapter:
-            tts_result = await adapter.synthesize(text_input)
-            if tts_result["status"] == "success":
-                audio_path = tts_result["audio_path"]
-                # Store audio path
-                # Enrich metrics_json with vendor/model info
-                tts_meta = tts_result.get("metadata", {})
-                metrics_meta = {
-                    "service_type": "tts",
-                    "vendor": vendor,
-                    "tts_vendor": vendor,
-                    "tts_model": tts_meta.get("model"),
-                    "voice_id": tts_meta.get("voice_id")
-                }
-                cursor.execute(
-                    "UPDATE run_items SET audio_path = ?, metrics_json = ? WHERE id = ?",
-                    (audio_path, json.dumps(metrics_meta), item_id),
-                )
-                # Compute audio duration and RTF
-                duration = get_audio_duration_seconds(audio_path)
-                tts_latency = float(tts_result.get("latency") or 0.0)
-                tts_rtf = (tts_latency / duration) if duration > 0 else None
-                # Store metrics
-                metrics = [
-                    {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
-                    {"name": "audio_duration", "value": duration, "unit": "seconds"},
-                ]
-                if tts_rtf is not None:
-                    metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
-                for metric in metrics:
-                    metric_id = str(uuid.uuid4())
-                    cursor.execute(
-                        """
-                        INSERT INTO metrics (id, run_item_id, metric_name, value, unit)
-                        VALUES (?, ?, ?, ?, ?)
-                        """,
-                        (metric_id, item_id, metric["name"], metric["value"], metric.get("unit")),
-                    )
-                # Store artifact
-                artifact_id = str(uuid.uuid4())
+        tts_params = pick_models(vendor, "tts")
+        tts_result = await adapter.synthesize(text_input, **tts_params)
+        if tts_result.get("status") == "success":
+            audio_path = tts_result["audio_path"]
+            tts_meta = tts_result.get("metadata", {})
+            metrics_meta = {
+                "service_type": "tts",
+                "vendor": vendor,
+                "tts_vendor": vendor,
+                "tts_model": tts_meta.get("model"),
+                "voice_id": tts_meta.get("voice_id")
+            }
+            cursor.execute(
+                "UPDATE run_items SET audio_path = ?, metrics_json = ? WHERE id = ?",
+                (audio_path, json.dumps(metrics_meta), item_id),
+            )
+            duration = get_audio_duration_seconds(audio_path)
+            tts_latency = float(tts_result.get("latency") or 0.0)
+            tts_rtf = (tts_latency / duration) if duration > 0 else None
+            metrics = [
+                {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
+                {"name": "audio_duration", "value": duration, "unit": "seconds"},
+            ]
+            if tts_rtf is not None:
+                metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
+            # Evaluate via Deepgram STT (default nova-3) for WER/accuracy/confidence
+            dg_params = pick_models("deepgram", "stt")
+            stt_adapter = VENDOR_ADAPTERS["deepgram"]["stt"]
+            stt_result = await stt_adapter.transcribe(audio_path, **dg_params)
+            if stt_result.get("status") == "success":
+                wer = calculate_wer(text_input, stt_result["transcript"].strip())
+                metrics.extend([
+                    {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.1, "pass_fail": "pass" if wer <= 0.1 else "fail"},
+                    {"name": "accuracy", "value": (1 - wer) * 100, "unit": "percent"},
+                    {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"}
+                ])
+            for metric in metrics:
+                metric_id = str(uuid.uuid4())
                 cursor.execute(
                     """
-                    INSERT INTO artifacts (id, run_item_id, type, file_path)
-                    VALUES (?, ?, 'audio', ?)
+                    INSERT INTO metrics (id, run_item_id, metric_name, value, unit, threshold, pass_fail)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (artifact_id, item_id, audio_path),
+                    (
+                        metric_id, item_id, metric["name"], metric["value"], metric.get("unit"), metric.get("threshold"), metric.get("pass_fail")
+                    ),
                 )
-    elif vendor in ["deepgram", "aws"]:
-        # STT testing: synthesize audio first using ElevenLabs (default), then transcribe
+            artifact_id = str(uuid.uuid4())
+            cursor.execute(
+                """
+                INSERT INTO artifacts (id, run_item_id, type, file_path)
+                VALUES (?, ?, 'audio', ?)
+                """,
+                (artifact_id, item_id, audio_path),
+            )
+    else:
+        # STT testing: synthesize using ElevenLabs by default (configurable later), then transcribe with selected vendor
         tts_adapter = VENDOR_ADAPTERS["elevenlabs"]["tts"]
-        tts_result = await tts_adapter.synthesize(text_input)
-        if tts_result["status"] == "success":
-            stt_adapter = VENDOR_ADAPTERS[vendor]["stt"]
+        el_params = pick_models("elevenlabs", "tts")
+        tts_result = await tts_adapter.synthesize(text_input, **el_params)
+        if tts_result.get("status") == "success":
             audio_path = tts_result["audio_path"]
-            stt_result = await stt_adapter.transcribe(audio_path)
-            if stt_result["status"] == "success":
-                # Calculate WER and metrics
-                wer = calculate_wer(text_input, stt_result["transcript"])
+            stt_adapter = VENDOR_ADAPTERS[vendor]["stt"]
+            stt_params = pick_models(vendor, "stt")
+            stt_result = await stt_adapter.transcribe(audio_path, **stt_params)
+            if stt_result.get("status") == "success":
+                wer = calculate_wer(text_input, stt_result["transcript"]) 
                 duration = get_audio_duration_seconds(audio_path)
                 stt_latency = float(stt_result.get("latency") or 0.0)
                 stt_rtf = (stt_latency / duration) if duration > 0 else None
-                # Store results
-                # Enrich metrics_json with stt vendor/model info
+                # Merge metadata
                 existing_meta = {}
                 try:
                     cursor.execute("SELECT metrics_json FROM run_items WHERE id = ?", (item_id,))

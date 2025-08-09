@@ -688,6 +688,8 @@ async def get_dashboard_insights():
         conn.close()
 
 @app.get("/api/scripts")
+async def api_get_scripts():
+    return await get_scripts()
 
 @app.get("/api/dashboard/latency_percentiles")
 async def get_latency_percentiles(metric: str = "e2e_latency", days: int = 7):

@@ -446,6 +446,69 @@ function App() {
 
             <Card>
               <CardHeader>
+                <CardTitle>Service Mix (last 7 days)</CardTitle>
+                <CardDescription>Distribution of TTS / STT / E2E tests</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  {Object.entries(insights.service_mix || {}).map(([k, v]) => (
+                    <div key={k} className="p-3 rounded-lg border bg-white flex items-center justify-between">
+                      <span className="text-sm font-medium">{k}</span>
+                      <Badge variant="secondary">{v}</Badge>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <div className="font-medium mb-2">Top Vendor Pairings</div>
+                    <div className="space-y-2">
+                      {(insights.top_vendor_pairings || []).map((p, i) => (
+                        <div key={i} className="p-3 rounded-lg border bg-white flex items-center justify-between">
+                          <div className="text-sm">
+                            <div className="font-medium">TTS: {p.tts_vendor} • STT: {p.stt_vendor}</div>
+                            <div className="text-xs text-gray-500">{p.tests} tests</div>
+                          </div>
+                          <Badge variant="outline">avg WER: {(p.avg_wer * 100).toFixed(1)}%</Badge>
+                        </div>
+                      ))}
+                      {(insights.top_vendor_pairings || []).length === 0 && (
+                        <div className="text-sm text-gray-500">No pairings yet</div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="font-medium mb-2">Vendor Usage</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg border bg-white">
+                        <div className="text-xs text-gray-500 mb-1">TTS</div>
+                        <div className="space-y-1">
+                          {Object.entries(insights.vendor_usage?.tts || {}).map(([k, v]) => (
+                            <div key={k} className="flex items-center justify-between text-sm"><span className="capitalize">{k}</span><span className="text-gray-600">{v}</span></div>
+                          ))}
+                          {Object.keys(insights.vendor_usage?.tts || {}).length === 0 && (
+                            <div className="text-sm text-gray-500">No data</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg border bg-white">
+                        <div className="text-xs text-gray-500 mb-1">STT</div>
+                        <div className="space-y-1">
+                          {Object.entries(insights.vendor_usage?.stt || {}).map(([k, v]) => (
+                            <div key={k} className="flex items-center justify-between text-sm"><span className="capitalize">{k}</span><span className="text-gray-600">{v}</span></div>
+                          ))}
+                          {Object.keys(insights.vendor_usage?.stt || {}).length === 0 && (
+                            <div className="text-sm text-gray-500">No data</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Recent Activity</CardTitle>
                 <CardDescription>Latest test runs and their performance</CardDescription>
               </CardHeader>

@@ -985,7 +985,7 @@ async def get_runs():
         for run in runs:
             cursor.execute(
                 """
-                SELECT ri., 
+                SELECT ri.*, 
                        GROUP_CONCAT(m.metric_name || ':' || m.value, '|') as metrics_summary
                 FROM run_items ri
                 LEFT JOIN metrics m ON ri.id = m.run_item_id

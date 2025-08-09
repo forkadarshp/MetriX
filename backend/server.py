@@ -211,7 +211,7 @@ class ElevenLabsAdapter(VendorAdapter):
         self.api_key = api_key
         self.is_dummy = api_key == "dummy_eleven_key"
     
-    async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_multilingual_v2", **params) -> Dict[str, Any]:
+    async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_flash_v2_5", **params) -> Dict[str, Any]:
         """Synthesize text using ElevenLabs TTS."""
         start_time = time.time()
         

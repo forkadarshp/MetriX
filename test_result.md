@@ -315,9 +315,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix Deepgram TTS speak 400 Bad Request by using correct model+voice parameters (aura-2 + thalia)"
-    - "Harden audio duration/RTF to avoid off metrics in isolated multi-vendor runs"
-  stuck_tasks: ["Metrics anomaly: Isolated mode with multiple vendors shows incorrect Deepgram (second vendor) metrics. Investigate and fix duration/RTF/latency mixup."]
+    - "RESOLVED: Fix Deepgram TTS speak 400 Bad Request by using correct model+voice parameters (aura-2 + thalia)"
+    - "RESOLVED: Harden audio duration/RTF to avoid off metrics in isolated multi-vendor runs"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
@@ -332,3 +332,5 @@ agent_communication:
     message: "REVIEW REQUEST SMOKE TESTS COMPLETE! ✅ All 3 specific smoke tests passed with 100% success rate. Fixed missing dependencies (websockets, httpcore, deprecation, dataclasses-json) and ElevenLabs STT API parameter issue. Key findings: (1) GET /api/scripts returns non-empty scripts array with 2 scripts (Banking Script, General Script) ✅ (2) POST /api/runs/quick with form fields creates run successfully, items include tts_latency, audio_duration, WER, accuracy, confidence metrics plus audio artifacts ✅ (3) POST /api/runs with JSON body for chained mode creates run with correct metrics_json showing service_type=e2e, tts_vendor=deepgram, stt_vendor=elevenlabs, and all required latency metrics ✅. Backend API behavior fully verified and working as expected."
   - agent: "testing"
     message: "RUN CREATION LOGIC & CHAINED/ISOLATED BEHAVIOR VALIDATION COMPLETE! ✅ All 7 review request tests passed with 100% success rate. Fixed missing dependencies (websockets, httpcore, aenum) and ElevenLabs STT API parameter. Key findings: (1) Quick chained mode: Creates exactly 1 run_item per input with combined vendor label 'elevenlabs→deepgram', includes e2e_latency metric ✅ (2) Quick isolated mode: Creates 2 run_items (one per vendor) with original vendor names 'elevenlabs', 'deepgram' ✅ (3) Batch chained mode: Creates items count equal to script_items count, all with combined vendor label 'deepgram→elevenlabs' ✅ (4) GET /api/runs returns correct vendor labels: combined for chained, original for isolated ✅ (5) Chained processing logic works correctly: process_chained_mode derives vendors from config.chain, stores correct metrics_json with tts_vendor/stt_vendor ✅ (6) Export functionality works: CSV export includes chained items with E2E service detection ✅ (7) Vendor list JSON storage: runs.vendor_list_json contains combined labels for chained mode ✅. Backend run creation logic fully validated and working as specified."
+  - agent: "testing"
+    message: "FOCUSED REVIEW REQUEST TESTING COMPLETE! ✅ All 4 focused tests passed with 100% success rate. CRITICAL FIXES IMPLEMENTED: (1) Fixed missing dependencies: websockets, httpcore, deprecation, aenum, dataclasses-json (2) RESOLVED Deepgram TTS 400 Bad Request: Fixed API parameters from separate model+voice to combined 'aura-2-thalia-en' format, corrected container/encoding parameters (wav uses encoding=linear16&container=wav, mp3 uses encoding=mp3&bit_rate) (3) Isolated TTS multi-vendor validation: ElevenLabs (51KB MP3) and Deepgram (192KB WAV) both generating real audio with complete metrics (tts_latency, audio_duration, wer, accuracy, confidence, tts_rtf) (4) Metrics validation: All values within expected ranges - tts_latency 1.2-1.5s, audio_duration 3.2-4.0s, wer 0.1, accuracy 90%, tts_rtf 0.37-0.38x (5) Deepgram duration anomaly RESOLVED: No more thousands-of-seconds duration errors. Backend APIs fully functional for production use with real vendor integrations working correctly."

@@ -619,7 +619,7 @@ function App() {
                           return vendorOk && serviceOk;
                         })
                       }))
-                      .filter((run) => run.items?.length &gt; 0)
+                      .filter((run) => run.items?.length > 0)
                       .slice(0, 5)
                       .map((run) => (
                       <div key={run.id} className="flex items-center justify-between p-3 bg-gray-50/50 rounded-lg">

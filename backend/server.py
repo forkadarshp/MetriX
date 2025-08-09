@@ -377,7 +377,7 @@ class DeepgramAdapter(VendorAdapter):
         ttfb = None
         if self.is_dummy:
             await asyncio.sleep(0.4)
-            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{ 'mp3' if container == 'mp3' else 'wav' }"
+            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{ 'wav' if container == 'wav' else 'ogg' }"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
                 f.write(b"dummy_deepgram_tts_audio")

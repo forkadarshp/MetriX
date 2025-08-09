@@ -636,6 +636,14 @@ class TTSSTTAPITester:
         # Processing tests
         self.test_processing_completion()
         
+        # Real API integration tests
+        print("\n" + "=" * 60)
+        print("🔥 REAL API INTEGRATION TESTS")
+        print("=" * 60)
+        self.test_real_elevenlabs_tts()
+        self.test_real_deepgram_stt()
+        self.test_chained_mode_real_apis()
+        
         # Error handling tests
         self.test_error_handling()
         

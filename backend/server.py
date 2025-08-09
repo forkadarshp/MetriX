@@ -407,7 +407,7 @@ class DeepgramAdapter(VendorAdapter):
                 "sample_rate": str(sample_rate)
             }
             payload = {"text": text}
-            file_ext = "mp3" if container == "mp3" else "wav"
+            file_ext = "wav" if container == "wav" else "ogg"
             audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{file_ext}"
             audio_path = f"storage/audio/{audio_filename}"
             file_size = 0

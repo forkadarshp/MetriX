@@ -698,6 +698,67 @@ function App() {
                         </SelectContent>
                       </Select>
                     </div>
+                  {/* Vendor-level config UI */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>ElevenLabs TTS Model</Label>
+                      <Select value={quickTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, tts_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="eleven_flash_v2_5">eleven_flash_v2_5</SelectItem>
+                          <SelectItem value="eleven_multilingual_v2">eleven_multilingual_v2</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Label className="mt-2">ElevenLabs STT Model</Label>
+                      <Select value={quickTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, stt_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scribe_v1">scribe_v1</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Deepgram TTS Model</Label>
+                      <Select value={quickTestForm.models.deepgram.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, tts_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Label className="mt-2">Deepgram STT Model</Label>
+                      <Select value={quickTestForm.models.deepgram.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, stt_model: v}}})}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nova-3">nova-3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Chained pairing config */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Chained: TTS Vendor</Label>
+                      <Select value={quickTestForm.chain.tts_vendor} onValueChange={(v)=>setQuickTestForm({...quickTestForm, chain:{...quickTestForm.chain, tts_vendor: v}})} disabled={quickTestForm.mode !== 'chained'}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
+                          <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Chained: STT Vendor</Label>
+                      <Select value={quickTestForm.chain.stt_vendor} onValueChange={(v)=>setQuickTestForm({...quickTestForm, chain:{...quickTestForm.chain, stt_vendor: v}})} disabled={quickTestForm.mode !== 'chained'}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
+                          <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
 
                     <div>
                       <Label>Vendors</Label>

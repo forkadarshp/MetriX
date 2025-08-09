@@ -808,8 +808,17 @@ async def create_run(run_data: RunCreate):
                     test_inputs.append({"text": item[2], "script_item_id": item[0]})
         if not test_inputs:
             test_inputs = [{"text": "Hello world, this is a test.", "script_item_id": None}]
-        # Create run items
-        for vendor in run_data.vendors:
+        # Create run items based on mode
+        mode_lower = (run_data.mode or "isolated").lower()
+        cfg = run_data.config or {}
+        chain = cfg.get("chain") or {}
+        # Resolve default pair for chained
+        tts_vendor = (chain.get("tts_vendor") or "elevenlabs").lower()
+        stt_vendor = (chain.get("stt_vendor") or "deepgram").lower()
+        combined_label = f"{tts_vendor}→{stt_vendor}"
+
+        if mode_lower == "chained":
+            # One item per input, vendor field is combined label
             for test_input in test_inputs:
                 item_id = str(uuid.uuid4())
                 cursor.execute(
@@ -821,10 +830,33 @@ async def create_run(run_data: RunCreate):
                         item_id,
                         run_id,
                         test_input["script_item_id"],
-                        vendor,
+                        combined_label,
                         test_input["text"],
                     ),
                 )
+            # Store combined label in the run vendors list for clarity
+            cursor.execute(
+                "UPDATE runs SET vendor_list_json = ? WHERE id = ?",
+                (json.dumps([combined_label]), run_id),
+            )
+        else:
+            # Isolated mode: one item per vendor per input
+            for vendor in run_data.vendors:
+                for test_input in test_inputs:
+                    item_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO run_items (id, run_id, script_item_id, vendor, text_input, status)
+                        VALUES (?, ?, ?, ?, ?, 'pending')
+                        """,
+                        (
+                            item_id,
+                            run_id,
+                            test_input["script_item_id"],
+                            vendor,
+                            test_input["text"],
+                        ),
+                    )
         conn.commit()
         asyncio.create_task(process_run(run_id))
         return {"run_id": run_id, "status": "created", "message": "Run created and processing started"}

@@ -1221,11 +1221,18 @@ async def create_quick_run(
     text: str = Form(...),
     vendors: str = Form(...),
     mode: str = Form("isolated"),
+    config: Optional[str] = Form(None),
 ):
     """Create a quick test run with single text input."""
     try:
         vendor_list = [v.strip() for v in vendors.split(",")]
-        run_data = RunCreate(mode=mode, vendors=vendor_list, text_inputs=[text])
+        cfg: Dict[str, Any] = {}
+        if config:
+            try:
+                cfg = json.loads(config)
+            except Exception:
+                cfg = {}
+        run_data = RunCreate(mode=mode, vendors=vendor_list, text_inputs=[text], config=cfg)
         result = await create_run(run_data)
         return result
     except Exception as e:

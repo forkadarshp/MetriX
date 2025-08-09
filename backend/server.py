@@ -11,6 +11,7 @@ import sqlite3
 import json
 import tempfile
 import aiofiles
+import httpx
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path

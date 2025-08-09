@@ -292,7 +292,7 @@ class ElevenLabsAdapter(VendorAdapter):
             client = ElevenLabs(api_key=self.api_key)
             with open(audio_path, 'rb') as audio_file:
                 result = client.speech_to_text.convert(
-                    audio=audio_file,
+                    file=audio_file,
                     model_id=model_id,
                 )
             transcript = result.get('text') or result.get('transcript') or ''

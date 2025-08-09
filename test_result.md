@@ -284,6 +284,28 @@ frontend:
       - working: "needs_testing"
         agent: "main"
         comment: "Added Vendor and Service filters to Recent Activity list."
+  - task: "Chained UX: hide Service dropdown + vendor checkboxes"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Chained mode now hides Service selector and vendor checkboxes; only pair selectors (TTS vendor, STT vendor) are shown."
+  - task: "Isolated UX: conditional vendor config sections"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "In isolated mode, only selected vendors' config panels are shown, and only fields relevant to the chosen service (TTS or STT)."
 
 metadata:
   created_by: "main_agent"

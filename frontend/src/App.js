@@ -686,7 +686,7 @@ function App() {
                       </Select>
                     </div>
 
-                    {quickTestForm.mode === 'isolated' &amp;&amp; (
+                    {quickTestForm.mode === 'isolated' && (
                       <div>
                         <Label>Test Service (Isolated Mode)</Label>
                         <Select value={quickTestForm.service} onValueChange={(v) => setQuickTestForm({...quickTestForm, service: v})}>
@@ -703,11 +703,11 @@ function App() {
                   </div>
 
                   {/* Vendor-level config UI - Isolated only, show relevant sections */}
-                  {quickTestForm.mode === 'isolated' &amp;&amp; (
+                  {quickTestForm.mode === 'isolated' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {quickTestForm.vendors.includes('elevenlabs') &amp;&amp; (
+                      {quickTestForm.vendors.includes('elevenlabs') && (
                         <div className="space-y-2">
-                          {quickTestForm.service === 'tts' &amp;&amp; (
+                          {quickTestForm.service === 'tts' && (
                             <>
                               <Label>ElevenLabs TTS Model</Label>
                               <Select value={quickTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, tts_model: v}}})}>
@@ -719,7 +719,7 @@ function App() {
                               </Select>
                             </>
                           )}
-                          {quickTestForm.service === 'stt' &amp;&amp; (
+                          {quickTestForm.service === 'stt' && (
                             <>
                               <Label className="mt-2">ElevenLabs STT Model</Label>
                               <Select value={quickTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, elevenlabs: {...quickTestForm.models.elevenlabs, stt_model: v}}})}>
@@ -732,9 +732,9 @@ function App() {
                           )}
                         </div>
                       )}
-                      {quickTestForm.vendors.includes('deepgram') &amp;&amp; (
+                      {quickTestForm.vendors.includes('deepgram') && (
                         <div className="space-y-2">
-                          {quickTestForm.service === 'tts' &amp;&amp; (
+                          {quickTestForm.service === 'tts' && (
                             <>
                               <Label>Deepgram TTS Model</Label>
                               <Select value={quickTestForm.models.deepgram.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, tts_model: v}}})}>
@@ -745,7 +745,7 @@ function App() {
                               </Select>
                             </>
                           )}
-                          {quickTestForm.service === 'stt' &amp;&amp; (
+                          {quickTestForm.service === 'stt' && (
                             <>
                               <Label className="mt-2">Deepgram STT Model</Label>
                               <Select value={quickTestForm.models.deepgram.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, stt_model: v}}})}>
@@ -762,7 +762,7 @@ function App() {
                   )}
 
                   {/* Chained pairing config - only show in chained mode */}
-                  {quickTestForm.mode === 'chained' &amp;&amp; (
+                  {quickTestForm.mode === 'chained' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label>Chained: TTS Vendor</Label>
@@ -788,7 +788,7 @@ function App() {
                   )}
 
                   {/* Vendors selection - hide in chained mode */}
-                  {quickTestForm.mode === 'isolated' &amp;&amp; (
+                  {quickTestForm.mode === 'isolated' && (
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
@@ -820,7 +820,7 @@ function App() {
                   )}
                 </div>
 
-                {error &amp;&amp; (
+                {error && (
                   <Alert className="border-red-200 bg-red-50">
                     <AlertDescription className="text-red-700">{error}</AlertDescription>
                   </Alert>
@@ -828,7 +828,7 @@ function App() {
 
                 <Button 
                   onClick={handleQuickTest} 
-                  disabled={loading || (quickTestForm.mode === 'isolated' &amp;&amp; quickTestForm.vendors.length === 0)}
+                  disabled={loading || (quickTestForm.mode === 'isolated' && quickTestForm.vendors.length === 0)}
                   className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
                   {loading ? (
@@ -864,11 +864,11 @@ function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       {/* Vendor-level config UI - Isolated only */}
-                      {batchTestForm.mode === 'isolated' &amp;&amp; (
+                      {batchTestForm.mode === 'isolated' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {batchTestForm.vendors.includes('elevenlabs') &amp;&amp; (
+                          {batchTestForm.vendors.includes('elevenlabs') && (
                             <div className="space-y-2">
-                              {batchTestForm.service === 'tts' &amp;&amp; (
+                              {batchTestForm.service === 'tts' && (
                                 <>
                                   <Label>ElevenLabs TTS Model</Label>
                                   <Select value={batchTestForm.models.elevenlabs.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, tts_model: v}}})}>
@@ -880,7 +880,7 @@ function App() {
                                   </Select>
                                 </>
                               )}
-                              {batchTestForm.service === 'stt' &amp;&amp; (
+                              {batchTestForm.service === 'stt' && (
                                 <>
                                   <Label className="mt-2">ElevenLabs STT Model</Label>
                                   <Select value={batchTestForm.models.elevenlabs.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, elevenlabs: {...batchTestForm.models.elevenlabs, stt_model: v}}})}>
@@ -893,9 +893,9 @@ function App() {
                               )}
                             </div>
                           )}
-                          {batchTestForm.vendors.includes('deepgram') &amp;&amp; (
+                          {batchTestForm.vendors.includes('deepgram') && (
                             <div className="space-y-2">
-                              {batchTestForm.service === 'tts' &amp;&amp; (
+                              {batchTestForm.service === 'tts' && (
                                 <>
                                   <Label>Deepgram TTS Model</Label>
                                   <Select value={batchTestForm.models.deepgram.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, tts_model: v}}})}>
@@ -906,7 +906,7 @@ function App() {
                                   </Select>
                                 </>
                               )}
-                              {batchTestForm.service === 'stt' &amp;&amp; (
+                              {batchTestForm.service === 'stt' && (
                                 <>
                                   <Label className="mt-2">Deepgram STT Model</Label>
                                   <Select value={batchTestForm.models.deepgram.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, stt_model: v}}})}>
@@ -934,7 +934,7 @@ function App() {
                       </Select>
                     </div>
 
-                    {batchTestForm.mode === 'isolated' &amp;&amp; (
+                    {batchTestForm.mode === 'isolated' && (
                       <div>
                         <Label>Test Service (Isolated Mode)</Label>
                         <Select value={batchTestForm.service} onValueChange={(v) => setBatchTestForm({...batchTestForm, service: v})}>
@@ -951,7 +951,7 @@ function App() {
                   </div>
 
                   {/* Chained pairing config - only in chained mode */}
-                  {batchTestForm.mode === 'chained' &amp;&amp; (
+                  {batchTestForm.mode === 'chained' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label>Chained: TTS Vendor</Label>
@@ -977,7 +977,7 @@ function App() {
                   )}
 
                   {/* Vendors - hide in chained mode */}
-                  {batchTestForm.mode === 'isolated' &amp;&amp; (
+                  {batchTestForm.mode === 'isolated' && (
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
@@ -1039,7 +1039,7 @@ function App() {
                                 <Badge variant="secondary" className="text-xs">
                                   {script.item_count} items
                                 </Badge>
-                                {script.tags &amp;&amp; (
+                                {script.tags && (
                                   <Badge variant="outline" className="text-xs">
                                     {script.tags}
                                   </Badge>
@@ -1052,7 +1052,7 @@ function App() {
                     </div>
                   </div>
 
-                  {error &amp;&amp; (
+                  {error && (
                     <Alert className="border-red-200 bg-red-50">
                       <AlertDescription className="text-red-700">{error}</AlertDescription>
                     </Alert>
@@ -1060,7 +1060,7 @@ function App() {
 
                   <Button 
                     onClick={handleBatchTest} 
-                    disabled={loading || batchTestForm.scriptIds.length === 0 || (batchTestForm.mode === 'isolated' &amp;&amp; batchTestForm.vendors.length === 0)}
+                    disabled={loading || batchTestForm.scriptIds.length === 0 || (batchTestForm.mode === 'isolated' && batchTestForm.vendors.length === 0)}
                     className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
                   >
                     {loading ? (

@@ -50,6 +50,17 @@ function App() {
     }
   }, []);
 
+  const fetchInsights = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/insights`);
+      if (!response.ok) throw new Error('Failed to fetch insights');
+      const data = await response.json();
+      setInsights(data);
+    } catch (err) {
+      console.error('Error fetching dashboard insights:', err);
+    }
+  }, []);
+
   const fetchRuns = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/runs`);

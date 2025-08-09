@@ -146,6 +146,28 @@ backend:
       - working: true
         agent: "main"
         comment: "END-TO-END PIPELINE WORKING! TTS→STT chain: 'The quick brown fox...' → ElevenLabs → Deepgram → 'The quick brown fox...'. WER: 11.1% (PASSED), E2E latency: 1.22s, confidence: 99.97%"
+  - task: "Deepgram TTS (Aura 2)"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Implemented Deepgram Speak API streaming with TTFB + total time, saved to storage/audio."
+  - task: "ElevenLabs STT (Scribe)"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Added ElevenLabs Scribe transcription via SDK client.speech_to_text.convert(model_id=scribe_v1)."
 
   - task: "Database Schema"
     implemented: true

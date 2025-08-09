@@ -269,3 +269,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Prepared metrics test script and added missing dependencies (mutagen, reportlab). Please run backend-focused tests only and report detailed results for the 7 checks."
+  - agent: "testing"
+    message: "BACKEND METRICS TESTING COMPLETE! ✅ All 7 metrics tests passed with 100% success rate. Key findings: (1) Isolated TTS correctly stores only tts_latency (1.26s) (2) Isolated STT correctly stores stt_latency (0.45s) (3) Chained mode latency math perfect: TTS+STT=E2E within 0ms tolerance (4) RTF computation working for all items (5) Dashboard stats showing non-zero avg_latency (0.557s) (6) Dashboard insights endpoint returning proper structures (7) Export working: CSV (25KB) and PDF (6KB). Created 6 test runs. Real ElevenLabs and Deepgram APIs functioning perfectly. Dependencies (mutagen, reportlab) confirmed working. Backend is production-ready!"

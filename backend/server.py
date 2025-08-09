@@ -867,6 +867,25 @@ async def process_run(run_id: str):
     finally:
         conn.close()
 
+def _get_run_config_for_item(conn, item_id: str) -> Dict[str, Any]:
+    try:
+        c = conn.cursor()
+        c.execute("SELECT run_id FROM run_items WHERE id = ?", (item_id,))
+        row = c.fetchone()
+        if not row:
+            return {}
+        run_id = row[0]
+        c.execute("SELECT config_json FROM runs WHERE id = ?", (run_id,))
+        r = c.fetchone()
+        if r and r[0]:
+            try:
+                return json.loads(r[0]) or {}
+            except Exception:
+                return {}
+        return {}
+    except Exception:
+        return {}
+
 async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn):
     """Process isolated mode testing."""
     cursor = conn.cursor()

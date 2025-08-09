@@ -230,8 +230,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "ElevenLabs TTS Integration"
-    - "Deepgram STT Integration"
+    - "Backend testing complete - all tasks verified"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"

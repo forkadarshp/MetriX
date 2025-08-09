@@ -1020,7 +1020,8 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 wer = calculate_wer(text_input, stt_result["transcript"]) 
                 duration = get_audio_duration_seconds(audio_path)
                 stt_latency = float(stt_result.get("latency") or 0.0)
-                stt_rtf = (stt_latency / duration) if duration > 0 else None
+                # Guard unrealistic/zero durations
+                stt_rtf = (stt_latency / duration) if (duration and 0 < duration < 3600) else None
                 # Merge metadata
                 existing_meta = {}
                 try:

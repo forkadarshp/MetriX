@@ -317,7 +317,7 @@ test_plan:
   current_focus:
     - "Backend metrics testing completed - all 7 checks passed"
     - "Audio duration and PDF export dependencies verified"
-  stuck_tasks: []
+  stuck_tasks: ["Metrics anomaly: Isolated mode with multiple vendors shows incorrect Deepgram (second vendor) metrics. Investigate and fix duration/RTF/latency mixup."]
   test_all: false
   test_priority: "high_first"
 

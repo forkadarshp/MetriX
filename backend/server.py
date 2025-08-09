@@ -1146,7 +1146,20 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
         if vendor_name == "deepgram" and svc == "stt":
             return {"model": models.get("stt_model") or "nova-3"}
         if vendor_name == "deepgram" and svc == "tts":
-            return {"model": models.get("tts_model") or "aura-2-thalia-en"}
+            # Support both new schema (model+voice) and legacy alias like 'aura-2-thalia-en'
+            tts_model = models.get("tts_model") or "aura-2"
+            voice = models.get("voice") or "thalia"
+            # If legacy alias provided in tts_model, extract voice
+            try:
+                alias = str(tts_model)
+                if alias.startswith("aura-2-") and "-" in alias[7:]:
+                    parts = alias.split("-")
+                    if len(parts) >= 3:
+                        tts_model = "aura-2"
+                        voice = parts[2] if parts[1] == "2" else parts[1]
+            except Exception:
+                pass
+            return {"model": tts_model, "voice": voice}
         return {}
 
     # Step 1: TTS

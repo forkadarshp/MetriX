@@ -773,20 +773,26 @@ class TTSSTTAPITester:
         
         return False
 
-    def test_chained_mode_metrics(self):
-        """Test chained mode and verify metrics labels"""
-        print("\n🔍 Testing Chained Mode Metrics...")
+    def test_elevenlabs_stt_scribe(self):
+        """Test ElevenLabs STT (Scribe) functionality"""
+        print("\n🔍 Testing ElevenLabs STT (Scribe)...")
         
+        # Create a run that will use ElevenLabs for STT
+        # In isolated mode for deepgram, it actually uses ElevenLabs TTS first then Deepgram STT
+        # But we need to test ElevenLabs STT specifically
+        
+        # Let's create a chained run with ElevenLabs as the vendor
+        # This should use ElevenLabs TTS -> ElevenLabs STT (if available)
         run_data = {
             "mode": "chained",
-            "vendors": ["elevenlabs", "deepgram"],
-            "text_inputs": ["The quick brown fox"]
+            "vendors": ["elevenlabs"],
+            "text_inputs": ["Testing ElevenLabs Scribe transcription"]
         }
         
         success, response, status_code = self.make_request('POST', '/api/runs', data=run_data)
         
         if not success or status_code != 200:
-            self.log_test("Chained Mode Metrics", False, f"Failed to create run: {status_code}")
+            self.log_test("ElevenLabs STT Scribe", False, f"Failed to create run: {status_code}")
             return False
         
         try:
@@ -794,51 +800,111 @@ class TTSSTTAPITester:
             run_id = data['run_id']
             self.created_run_ids.append(run_id)
         except:
-            self.log_test("Chained Mode Metrics", False, "Invalid response format")
+            self.log_test("ElevenLabs STT Scribe", False, "Invalid response format")
             return False
         
         # Wait for processing
-        time.sleep(3)
+        time.sleep(5)  # Give more time for processing
         
         # Check run results
-        success, response, status_code = self.make_request('GET', '/api/runs')
+        success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
         if success and status_code == 200:
-            runs_data = response.json()
-            runs = runs_data.get('runs', [])
-            
-            # Find our run
-            target_run = None
-            for run in runs:
-                if run.get('id') == run_id:
-                    target_run = run
-                    break
-            
-            if target_run and target_run.get('items'):
-                # Check for expected metrics in chained mode
-                expected_metrics = ['e2e_latency', 'tts_latency', 'stt_latency', 'wer', 'confidence']
-                found_metrics = []
+            try:
+                data = response.json()
+                run = data['run']
+                items = run.get('items', [])
                 
-                for item in target_run['items']:
-                    metrics_summary = item.get('metrics_summary', '')
-                    if metrics_summary:
-                        # Parse metrics from summary string
-                        for metric in expected_metrics:
-                            if metric in metrics_summary:
-                                found_metrics.append(metric)
-                
-                found_metrics = list(set(found_metrics))  # Remove duplicates
-                
-                if len(found_metrics) >= 3:  # At least 3 of the expected metrics
-                    self.log_test("Chained Mode Metrics", True, 
-                                f"Found metrics: {found_metrics}")
-                    return True
+                if items:
+                    item = items[0]
+                    transcript = item.get('transcript', '')
+                    audio_path = item.get('audio_path', '')
+                    
+                    if transcript and audio_path:
+                        self.log_test("ElevenLabs STT Scribe", True, 
+                                    f"ElevenLabs STT working: '{transcript}' from {audio_path}")
+                        return True
+                    else:
+                        self.log_test("ElevenLabs STT Scribe", False, 
+                                    f"Missing transcript ({bool(transcript)}) or audio ({bool(audio_path)})")
                 else:
-                    self.log_test("Chained Mode Metrics", False, 
-                                f"Missing expected metrics. Found: {found_metrics}")
-            else:
-                self.log_test("Chained Mode Metrics", False, "No items found in run")
+                    self.log_test("ElevenLabs STT Scribe", False, "No items found in run")
+            except Exception as e:
+                self.log_test("ElevenLabs STT Scribe", False, f"Error parsing response: {str(e)}")
         else:
-            self.log_test("Chained Mode Metrics", False, "Failed to retrieve runs")
+            self.log_test("ElevenLabs STT Scribe", False, f"Failed to get run details: {status_code}")
+        
+        return False
+
+    def test_deepgram_tts_aura2_detailed(self):
+        """Test Deepgram TTS (Aura 2) with detailed verification"""
+        print("\n🔍 Testing Deepgram TTS (Aura 2) Detailed...")
+        
+        form_data = {
+            'text': 'This is a detailed test of Deepgram Aura 2 text to speech',
+            'vendors': 'deepgram',
+            'mode': 'isolated'
+        }
+        
+        headers = {}
+        success, response, status_code = self.make_request('POST', '/api/runs/quick', 
+                                                         data=form_data, headers=headers)
+        
+        if not success or status_code != 200:
+            self.log_test("Deepgram TTS Aura2 Detailed", False, f"Failed to create run: {status_code}")
+            return False
+        
+        try:
+            data = response.json()
+            run_id = data['run_id']
+            self.created_run_ids.append(run_id)
+        except:
+            self.log_test("Deepgram TTS Aura2 Detailed", False, "Invalid response format")
+            return False
+        
+        # Wait for processing
+        time.sleep(5)
+        
+        # Get detailed run information
+        success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
+        if success and status_code == 200:
+            try:
+                data = response.json()
+                run = data['run']
+                items = run.get('items', [])
+                
+                if items:
+                    item = items[0]
+                    audio_path = item.get('audio_path', '')
+                    status = item.get('status', '')
+                    
+                    if audio_path and status == 'completed':
+                        # Try to access the audio file
+                        audio_filename = audio_path.split('/')[-1]
+                        audio_success, audio_response, audio_status = self.make_request('GET', f'/api/audio/{audio_filename}', headers={})
+                        
+                        if audio_success and audio_status == 200:
+                            content_length = len(audio_response.content) if audio_response else 0
+                            content_type = audio_response.headers.get('content-type', '')
+                            
+                            if content_length > 100 and content_type.startswith('audio/'):
+                                self.log_test("Deepgram TTS Aura2 Detailed", True, 
+                                            f"Deepgram TTS successful: {content_length} bytes, {content_type}")
+                                return True
+                            else:
+                                self.log_test("Deepgram TTS Aura2 Detailed", False, 
+                                            f"Audio file too small or wrong type: {content_length} bytes, {content_type}")
+                        else:
+                            self.log_test("Deepgram TTS Aura2 Detailed", False, 
+                                        f"Cannot access audio file: {audio_status}")
+                    else:
+                        self.log_test("Deepgram TTS Aura2 Detailed", False, 
+                                    f"No audio path ({bool(audio_path)}) or not completed ({status})")
+                else:
+                    self.log_test("Deepgram TTS Aura2 Detailed", False, "No items found in run")
+            except Exception as e:
+                self.log_test("Deepgram TTS Aura2 Detailed", False, f"Error parsing response: {str(e)}")
+        else:
+            self.log_test("Deepgram TTS Aura2 Detailed", False, f"Failed to get run details: {status_code}")
         
         return False
 

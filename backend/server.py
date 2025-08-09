@@ -301,24 +301,29 @@ class DeepgramAdapter(VendorAdapter):
                 "metadata": {"model": "nova-3", "language": "en-US"}
             }
         else:
-            # Real implementation would go here
+            # Real implementation
             try:
-                from deepgram import DeepgramClient, PrerecordedOptions
+                from deepgram import DeepgramClient, PrerecordedOptions, FileSource
                 
                 client = DeepgramClient(self.api_key)
                 
                 options = PrerecordedOptions(
-                    model="nova-3",
+                    model="nova-2",
                     smart_format=True,
                     punctuate=True,
                     language="en-US"
                 )
                 
-                with open(audio_path, 'rb') as audio:
-                    payload = {'buffer': audio}
-                    response = await client.listen.asyncprerecorded.v("1").transcribe_file(
-                        payload, options
-                    )
+                with open(audio_path, 'rb') as audio_file:
+                    buffer_data = audio_file.read()
+                
+                payload: FileSource = {
+                    "buffer": buffer_data,
+                }
+                
+                response = client.listen.prerecorded.v("1").transcribe_file(
+                    payload, options
+                )
                 
                 transcript = response.results.channels[0].alternatives[0].transcript
                 confidence = response.results.channels[0].alternatives[0].confidence
@@ -330,7 +335,7 @@ class DeepgramAdapter(VendorAdapter):
                     "vendor": "deepgram",
                     "latency": latency,
                     "status": "success",
-                    "metadata": {"model": "nova-3", "language": "en-US"}
+                    "metadata": {"model": "nova-2", "language": "en-US"}
                 }
             except Exception as e:
                 logger.error(f"Deepgram transcription error: {e}")

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend API Testing for TTS/STT Benchmarking Dashboard
-Tests all endpoints, database operations, and vendor adapters
+Focused Backend API Testing for TTS/STT Benchmarking Dashboard
+Testing audio serving, new vendor capabilities, and specific endpoints per review request
 """
 
 import requests
 import json
 import time
 import sys
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional
 

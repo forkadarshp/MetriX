@@ -304,18 +304,92 @@ function App() {
 
     const MetricBadge = ({ name, value }) => {
       const num = parseFloat(value);
-      const friendly = (label, val) => (
-        <Badge variant="secondary" className="text-xs">{label}: {val}</Badge>
+      
+      // Enhanced badge with color coding and tooltips
+      const enhancedBadge = (label, val, color, tooltip) => {
+        const badgeClass = `text-xs ${color}`;
+        return (
+          <Badge variant="secondary" className={badgeClass} title={tooltip}>
+            {label}: {val}
+          </Badge>
+        );
+      };
+      
+      if (name === 'wer') {
+        const percentage = (num * 100).toFixed(1);
+        const color = num <= 0.1 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num <= 0.3 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `Word Error Rate: ${percentage}% - ${num <= 0.1 ? 'Excellent' : num <= 0.3 ? 'Good' : 'Needs Improvement'}. Lower is better.`;
+        return enhancedBadge('WER', `${percentage}%`, color, tooltip);
+      }
+      
+      if (name === 'accuracy') {
+        const percentage = num.toFixed(1);
+        const color = num >= 90 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num >= 70 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `Speech Recognition Accuracy: ${percentage}% - ${num >= 90 ? 'Excellent' : num >= 70 ? 'Good' : 'Needs Improvement'}. Higher is better.`;
+        return enhancedBadge('Accuracy', `${percentage}%`, color, tooltip);
+      }
+      
+      if (name === 'confidence') {
+        const percentage = (num * 100).toFixed(0);
+        const color = num >= 0.8 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num >= 0.6 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `Model Confidence: ${percentage}% - ${num >= 0.8 ? 'High' : num >= 0.6 ? 'Medium' : 'Low'} confidence in transcription result.`;
+        return enhancedBadge('Confidence', `${percentage}%`, color, tooltip);
+      }
+      
+      // Enhanced latency badges
+      if (name === 'e2e_latency') {
+        const ms = (num * 1000).toFixed(0);
+        const color = num <= 1 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num <= 3 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `End-to-End Latency: ${ms}ms - ${num <= 1 ? 'Fast' : num <= 3 ? 'Average' : 'Slow'} processing time.`;
+        return enhancedBadge('E2E Latency', `${ms}ms`, color, tooltip);
+      }
+      
+      if (name === 'tts_latency') {
+        const ms = (num * 1000).toFixed(0);
+        const color = num <= 0.5 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num <= 2 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `Text-to-Speech Latency: ${ms}ms - Time to generate audio from text.`;
+        return enhancedBadge('TTS Latency', `${ms}ms`, color, tooltip);
+      }
+      
+      if (name === 'stt_latency') {
+        const ms = (num * 1000).toFixed(0);
+        const color = num <= 0.5 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num <= 2 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `Speech-to-Text Latency: ${ms}ms - Time to transcribe audio to text.`;
+        return enhancedBadge('STT Latency', `${ms}ms`, color, tooltip);
+      }
+      
+      if (name === 'latency') {
+        const ms = (num * 1000).toFixed(0);
+        const color = num <= 1 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num <= 3 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `Processing Latency: ${ms}ms`;
+        return enhancedBadge('Latency', `${ms}ms`, color, tooltip);
+      }
+      
+      if (name === 'audio_duration') {
+        const duration = num.toFixed(2);
+        const tooltip = `Audio Duration: ${duration}s - Length of generated/processed audio file.`;
+        return enhancedBadge('Audio', `${duration}s`, 'bg-blue-100 text-blue-800 border-blue-200', tooltip);
+      }
+      
+      return (
+        <Badge variant="secondary" className="text-xs">
+          {name}: {isNaN(num) ? value : num.toFixed(3)}
+        </Badge>
       );
-      if (name === 'wer') return friendly('WER', `${(num * 100).toFixed(1)}%`);
-      if (name === 'accuracy') return friendly('Accuracy', `${num.toFixed(1)}%`);
-      if (name === 'confidence') return friendly('Confidence', `${(num * 100).toFixed(0)}%`);
-      if (name === 'e2e_latency') return friendly('E2E Latency', `${(num * 1000).toFixed(0)}ms`);
-      if (name === 'tts_latency') return friendly('TTS Latency', `${(num * 1000).toFixed(0)}ms`);
-      if (name === 'stt_latency') return friendly('STT Latency', `${(num * 1000).toFixed(0)}ms`);
-      if (name === 'latency') return friendly('Latency', `${(num * 1000).toFixed(0)}ms`);
-      if (name === 'audio_duration') return friendly('Audio', `${num.toFixed(2)}s`);
-      return friendly(name, isNaN(num) ? value : num.toFixed(3));
     };
 
     const AudioControls = ({ item }) => {

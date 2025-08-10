@@ -327,6 +327,8 @@ frontend:
     implemented: true
   - agent: "main"
     message: "Implemented transcript file storage and serving API; frontend button to show transcript in Results tab. Please run backend tests to verify /api/transcript works and that run_items produce transcript artifacts for e2e and stt flows, and optionally tts eval path."
+  - agent: "testing"
+    message: "TRANSCRIPT STORAGE & SERVING FEATURE VALIDATION COMPLETE! ✅ All 16 review request tests passed with 100% success rate. CRITICAL FINDINGS: (1) Quick chained run (text='The quick brown fox', vendors='elevenlabs,deepgram', mode='chained'): Successfully creates transcript_{run_item_id}.txt files in storage/transcripts/ directory, GET /api/transcript/transcript_{run_item_id}.txt returns HTTP 200 text/plain with exact transcript content matching database ✅ (2) Isolated STT run (mode='isolated', service='stt', vendors='deepgram'): Creates transcript artifacts and serves them correctly via API endpoint ✅ (3) Isolated TTS run (mode='isolated', service='tts', vendors='elevenlabs'): TTS evaluation path via Deepgram STT saves transcript artifacts and serves them successfully ✅ (4) Frontend contract validation: GET /api/runs returns unchanged structure with items list and metrics_summary field preserved, no regressions detected ✅. Fixed missing dependencies (websockets, httpcore, deprecation, aenum, dataclasses-json). All transcript storage paths working: chained (E2E), isolated STT, and isolated TTS evaluation. Feature is production-ready!"
 
     working: "needs_testing"
     file: "frontend/src/App.js"

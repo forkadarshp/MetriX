@@ -359,7 +359,7 @@ function App() {
       };
 
       useEffect(() => {
-        if (showTranscript && !transcriptText) {
+        if (showTranscript) {
           fetchTranscriptIfNeeded();
         }
       }, [showTranscript]);

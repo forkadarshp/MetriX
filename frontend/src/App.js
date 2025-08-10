@@ -344,17 +344,14 @@ function App() {
         if (!hasTranscript) return;
         try {
           // Prefer transcript artifact file if present; else use inline item.transcript
-          const artifact = (item.artifacts || []).find(a => a.type === 'transcript' && a.file_path);
-          if (artifact && artifact.file_path) {
-            const tName = String(artifact.file_path).split('/').pop();
-            const resp = await fetch(`${API_BASE_URL}/api/transcript/${tName}`);
-            if (resp.ok) {
-              const txt = await resp.text();
-              setTranscriptText(txt);
-              return;
-            }
+          const tName = `transcript_${item.id}.txt`;
+          const resp = await fetch(`${API_BASE_URL}/api/transcript/${tName}`);
+          if (resp.ok) {
+            const txt = await resp.text();
+            setTranscriptText(txt);
+            return;
           }
-          setTranscriptText(item.transcript);
+          setTranscriptText(item.transcript || '');
         } catch (e) {
           console.error('Transcript fetch failed', e);
           setTranscriptText(item.transcript || '');

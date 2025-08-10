@@ -320,12 +320,16 @@ function App() {
 
     const AudioControls = ({ item }) => {
       const [playing, setPlaying] = useState(false);
+      const [showTranscript, setShowTranscript] = useState(false);
+      const [transcriptText, setTranscriptText] = useState('');
       const audioRef = React.useRef(null);
-      if (!item.audio_path) return null;
-      const filename = String(item.audio_path).split('/').pop();
-      const src = `${API_BASE_URL}/api/audio/${filename}`;
+      const hasAudio = !!item.audio_path;
+      const hasTranscript = !!item.transcript;
+      const audioFilename = hasAudio ? String(item.audio_path).split('/').pop() : null;
+      const audioSrc = hasAudio ? `${API_BASE_URL}/api/audio/${audioFilename}` : null;
 
       const togglePlay = () => {
+        if (!hasAudio) return;
         const el = audioRef.current;
         if (!el) return;
         if (playing) {
@@ -336,13 +340,57 @@ function App() {
         }
       };
 
+      const fetchTranscriptIfNeeded = async () => {
+        if (!hasTranscript) return;
+        try {
+          // Prefer transcript artifact file if present; else use inline item.transcript
+          const artifact = (item.artifacts || []).find(a => a.type === 'transcript' && a.file_path);
+          if (artifact && artifact.file_path) {
+            const tName = String(artifact.file_path).split('/').pop();
+            const resp = await fetch(`${API_BASE_URL}/api/transcript/${tName}`);
+            if (resp.ok) {
+              const txt = await resp.text();
+              setTranscriptText(txt);
+              return;
+            }
+          }
+          setTranscriptText(item.transcript);
+        } catch (e) {
+          console.error('Transcript fetch failed', e);
+          setTranscriptText(item.transcript || '');
+        }
+      };
+
+      useEffect(() => {
+        if (showTranscript && !transcriptText) {
+          fetchTranscriptIfNeeded();
+        }
+      }, [showTranscript]);
+
       return (
         <div className="flex items-center space-x-2">
-          <audio ref={audioRef} src={src} onEnded={() => setPlaying(false)} preload="none" />
-          <Button variant="outline" size="sm" onClick={togglePlay}>
-            {playing ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
-            {playing ? 'Pause' : 'Play'}
-          </Button>
+          {hasAudio && (
+            <>
+              <audio ref={audioRef} src={audioSrc} onEnded={() => setPlaying(false)} preload="none" />
+              <Button variant="outline" size="sm" onClick={togglePlay}>
+                {playing ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                {playing ? 'Pause' : 'Play'}
+              </Button>
+            </>
+          )}
+          {hasTranscript && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setShowTranscript(!showTranscript)}>
+                <FileText className="h-3 w-3 mr-1" />
+                {showTranscript ? 'Hide Transcript' : 'Show Transcript'}
+              </Button>
+              {showTranscript && (
+                <div className="ml-2 max-w-xl text-xs text-gray-700 bg-white p-2 rounded border">
+                  {transcriptText || item.transcript}
+                </div>
+              )}
+            </>
+          )}
         </div>
       );
     };

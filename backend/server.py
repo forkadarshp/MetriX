@@ -1561,6 +1561,16 @@ async def serve_audio(filename: str):
         content = f.read()
     return Response(content=content, media_type=mime)
 
+@app.get("/api/transcript/{filename}")
+async def serve_transcript(filename: str):
+    """Serve transcript text files saved as artifacts."""
+    t_path = f"storage/transcripts/{filename}"
+    if not os.path.exists(t_path):
+        raise HTTPException(status_code=404, detail="Transcript file not found")
+    with open(t_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return Response(content=content, media_type="text/plain; charset=utf-8")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)

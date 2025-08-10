@@ -218,6 +218,19 @@ backend:
         comment: "Added mutagen and reportlab to requirements to enable MP3 duration and PDF export. Installing and restarting backend next."
 
 frontend:
+
+  - task: "Transcript artifact storage and serving"
+    implemented: true
+    working: "needs_testing"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Save transcript to storage/transcripts/transcript_{run_item_id}.txt for TTS evaluation, STT isolated, and chained runs; added /api/transcript/{filename} endpoint to serve text"
+
   - task: "Config-driven vendor/service selection"
     implemented: true
     working: true

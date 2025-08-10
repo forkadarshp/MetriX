@@ -319,12 +319,15 @@ frontend:
         comment: "Chained mode now hides Service selector and vendor checkboxes; only pair selectors (TTS vendor, STT vendor) are shown."
   - task: "Results: Show Transcript button per item"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "TRANSCRIPT FUNCTIONALITY FULLY WORKING! ✅ Comprehensive testing completed with 100% success rate. Tested 5 existing runs + 1 new run creation. Key findings: (1) All transcript API requests successful: GET /api/transcript/transcript_{item.id}.txt returns HTTP 200 with actual transcript content ✅ (2) Frontend correctly displays transcript content instead of fallback message 'Transcript will appear here once available.' ✅ (3) Works across all run modes: isolated TTS (with evaluation transcript), isolated STT, and chained E2E ✅ (4) Network monitoring confirmed proper API calls and responses ✅ (5) End-to-end test: Created new isolated TTS run, transcript generated and displayed correctly ✅. The user's reported issue of seeing fallback message is NOT occurring - transcript functionality is production-ready and working as designed."
       - working: "needs_testing"
         agent: "main"
         comment: "Added Show Transcript toggle next to Play in Results tab. Fetches from /api/transcript/transcript_{item.id}.txt with fallback to inline transcript."

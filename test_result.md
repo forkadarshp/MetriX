@@ -221,12 +221,15 @@ frontend:
 
   - task: "Transcript artifact storage and serving"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "backend/server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "TRANSCRIPT FEATURE FULLY WORKING! ✅ All 4 review request tests passed with 100% success rate. Key findings: (1) Chained runs: Creates transcript_{run_item_id}.txt files in storage/transcripts/, served via /api/transcript/{filename} endpoint returning HTTP 200 text/plain with correct content matching database transcript ✅ (2) Isolated STT runs: Transcript artifacts created and served successfully ✅ (3) Isolated TTS runs: Evaluation transcripts (via Deepgram STT assessment) saved and served correctly ✅ (4) Frontend contract unchanged: GET /api/runs still returns expected structure with items list and metrics_summary field preserved ✅. Fixed missing dependencies (websockets, httpcore, deprecation, aenum, dataclasses-json). Transcript storage working for all run modes: chained (TTS→STT), isolated STT, and isolated TTS evaluation paths."
       - working: "needs_testing"
         agent: "main"
         comment: "Save transcript to storage/transcripts/transcript_{run_item_id}.txt for TTS evaluation, STT isolated, and chained runs; added /api/transcript/{filename} endpoint to serve text"

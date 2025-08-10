@@ -1,0 +1,1 @@
+this is a comprehensive test of isolated stt mode using default elevenlabs tts followed by deepgram stt

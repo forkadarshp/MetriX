@@ -1,0 +1,1 @@
+this is a comprehensive test of isolated tts mode with transcript evaluation using eleven labs and deepgram

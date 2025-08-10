@@ -396,6 +396,8 @@ function App() {
       const [playing, setPlaying] = useState(false);
       const [showTranscript, setShowTranscript] = useState(false);
       const [transcriptText, setTranscriptText] = useState('');
+      const [transcriptLoading, setTranscriptLoading] = useState(false);
+      const [transcriptError, setTranscriptError] = useState('');
       const audioRef = React.useRef(null);
       const hasAudio = !!item.audio_path;
       const hasTranscript = !!item.transcript || !!item.audio_path;
@@ -414,29 +416,127 @@ function App() {
         }
       };
 
-      const fetchTranscriptIfNeeded = async () => {
+      const fetchTranscriptWithRetry = async (retries = 2) => {
         if (!hasTranscript) return;
-        try {
-          // Prefer transcript artifact file if present; else use inline item.transcript
-          const tName = `transcript_${item.id}.txt`;
-          const resp = await fetch(`${API_BASE_URL}/api/transcript/${tName}`);
-          if (resp.ok) {
-            const txt = await resp.text();
-            setTranscriptText(txt);
-            return;
+        
+        setTranscriptLoading(true);
+        setTranscriptError('');
+        
+        for (let attempt = 0; attempt <= retries; attempt++) {
+          try {
+            // First, check if we have an inline transcript
+            if (item.transcript && item.transcript.trim()) {
+              setTranscriptText(item.transcript);
+              setTranscriptLoading(false);
+              return;
+            }
+            
+            // Try to fetch transcript file from API
+            const tName = `transcript_${item.id}.txt`;
+            console.log(`Attempting to fetch transcript: ${API_BASE_URL}/api/transcript/${tName}`);
+            
+            const resp = await fetch(`${API_BASE_URL}/api/transcript/${tName}`, {
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              }
+            });
+            
+            if (resp.ok) {
+              const txt = await resp.text();
+              if (txt && txt.trim()) {
+                console.log('Successfully fetched transcript:', txt.substring(0, 100) + '...');
+                setTranscriptText(txt);
+                setTranscriptLoading(false);
+                return;
+              }
+            } else {
+              console.log(`Transcript API returned ${resp.status}: ${resp.statusText}`);
+            }
+            
+            // If we're on the last attempt and still no transcript, set fallback
+            if (attempt === retries) {
+              if (item.transcript) {
+                setTranscriptText(item.transcript);
+              } else {
+                setTranscriptError('Transcript not available yet. It may still be generating.');
+                setTranscriptText('');
+              }
+            } else {
+              // Wait before retry
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+          } catch (e) {
+            console.error(`Transcript fetch attempt ${attempt + 1} failed:`, e);
+            
+            if (attempt === retries) {
+              // Last attempt failed
+              if (item.transcript && item.transcript.trim()) {
+                setTranscriptText(item.transcript);
+              } else {
+                setTranscriptError('Failed to load transcript. Please try again.');
+                setTranscriptText('');
+              }
+            } else {
+              // Wait before retry
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
           }
-          setTranscriptText(item.transcript || '');
-        } catch (e) {
-          console.error('Transcript fetch failed', e);
-          setTranscriptText(item.transcript || '');
         }
+        
+        setTranscriptLoading(false);
       };
 
       useEffect(() => {
         if (showTranscript) {
-          fetchTranscriptIfNeeded();
+          fetchTranscriptWithRetry();
         }
-      }, [showTranscript]);
+      }, [showTranscript, item.id]);
+
+      const getTranscriptDisplay = () => {
+        if (transcriptLoading) {
+          return (
+            <div className="flex items-center space-x-2 text-blue-600">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+              <span>Loading transcript...</span>
+            </div>
+          );
+        }
+        
+        if (transcriptError) {
+          return (
+            <div className="text-orange-600 text-xs">
+              {transcriptError}
+              <button 
+                onClick={fetchTranscriptWithRetry}
+                className="ml-2 underline hover:no-underline"
+              >
+                Retry
+              </button>
+            </div>
+          );
+        }
+        
+        if (transcriptText && transcriptText.trim()) {
+          return (
+            <div className="text-gray-800">
+              <div className="font-medium text-xs text-gray-500 mb-1">Transcript:</div>
+              <div>{transcriptText}</div>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="text-gray-500 text-xs">
+            Transcript will appear here once available.
+            <br />
+            <span className="text-xs text-gray-400">
+              {hasTranscript ? 'Processing...' : 'No transcript available for this item.'}
+            </span>
+          </div>
+        );
+      };
 
       return (
         <div className="flex items-center space-x-2">
@@ -450,13 +550,18 @@ function App() {
             </>
           )}
           <>
-            <Button variant="outline" size="sm" onClick={() => setShowTranscript(!showTranscript)}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowTranscript(!showTranscript)}
+              disabled={transcriptLoading}
+            >
               <FileText className="h-3 w-3 mr-1" />
-              {showTranscript ? 'Hide Transcript' : 'Show Transcript'}
+              {transcriptLoading ? 'Loading...' : showTranscript ? 'Hide Transcript' : 'Show Transcript'}
             </Button>
             {showTranscript && (
-              <div className="ml-2 max-w-xl text-xs text-gray-700 bg-white p-2 rounded border">
-                {transcriptText || item.transcript || 'Transcript will appear here once available.'}
+              <div className="ml-2 max-w-xl text-xs bg-white p-3 rounded border shadow-sm">
+                {getTranscriptDisplay()}
               </div>
             )}
           </>

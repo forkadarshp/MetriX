@@ -308,6 +308,18 @@ frontend:
       - working: "needs_testing"
         agent: "main"
         comment: "Chained mode now hides Service selector and vendor checkboxes; only pair selectors (TTS vendor, STT vendor) are shown."
+  - task: "Results: Show Transcript button per item"
+    implemented: true
+    working: "needs_testing"
+    file: "frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "needs_testing"
+        agent: "main"
+        comment: "Added Show Transcript toggle next to Play in Results tab. Fetches from /api/transcript/transcript_{item.id}.txt with fallback to inline transcript."
+
   - task: "Isolated UX: conditional vendor config sections"
     implemented: true
     working: "needs_testing"

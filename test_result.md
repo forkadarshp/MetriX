@@ -322,6 +322,9 @@ frontend:
 
   - task: "Isolated UX: conditional vendor config sections"
     implemented: true
+  - agent: "main"
+    message: "Implemented transcript file storage and serving API; frontend button to show transcript in Results tab. Please run backend tests to verify /api/transcript works and that run_items produce transcript artifacts for e2e and stt flows, and optionally tts eval path."
+
     working: "needs_testing"
     file: "frontend/src/App.js"
     stuck_count: 0

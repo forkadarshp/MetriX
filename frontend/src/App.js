@@ -375,19 +375,17 @@ function App() {
               </Button>
             </>
           )}
-          {hasTranscript && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setShowTranscript(!showTranscript)}>
-                <FileText className="h-3 w-3 mr-1" />
-                {showTranscript ? 'Hide Transcript' : 'Show Transcript'}
-              </Button>
-              {showTranscript && (
-                <div className="ml-2 max-w-xl text-xs text-gray-700 bg-white p-2 rounded border">
-                  {transcriptText || item.transcript}
-                </div>
-              )}
-            </>
-          )}
+          <>
+            <Button variant="outline" size="sm" onClick={() => setShowTranscript(!showTranscript)}>
+              <FileText className="h-3 w-3 mr-1" />
+              {showTranscript ? 'Hide Transcript' : 'Show Transcript'}
+            </Button>
+            {showTranscript && (
+              <div className="ml-2 max-w-xl text-xs text-gray-700 bg-white p-2 rounded border">
+                {transcriptText || item.transcript || 'Transcript will appear here once available.'}
+              </div>
+            )}
+          </>
         </div>
       );
     };

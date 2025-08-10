@@ -1,0 +1,1 @@
+testing isolated stt transcript storage

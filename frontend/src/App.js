@@ -324,7 +324,7 @@ function App() {
       const [transcriptText, setTranscriptText] = useState('');
       const audioRef = React.useRef(null);
       const hasAudio = !!item.audio_path;
-      const hasTranscript = !!item.transcript;
+      const hasTranscript = !!item.transcript || !!item.audio_path;
       const audioFilename = hasAudio ? String(item.audio_path).split('/').pop() : null;
       const audioSrc = hasAudio ? `${API_BASE_URL}/api/audio/${audioFilename}` : null;
 

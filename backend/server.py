@@ -1176,6 +1176,22 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                             metric.get("pass_fail"),
                         ),
                     )
+                # Save transcript as a file artifact for STT isolated runs
+                try:
+                    t_filename = f"transcript_{item_id}.txt"
+                    t_path = f"storage/transcripts/{t_filename}"
+                    with open(t_path, "w", encoding="utf-8") as tf:
+                        tf.write(stt_result.get("transcript", ""))
+                    t_artifact_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO artifacts (id, run_item_id, type, file_path)
+                        VALUES (?, ?, 'transcript', ?)
+                        """,
+                        (t_artifact_id, item_id, t_path),
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to save transcript artifact for {item_id}: {e}")
     conn.commit()
 
 async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn):

@@ -1095,6 +1095,24 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 """,
                 (artifact_id, item_id, audio_path),
             )
+            # Save STT evaluation transcript as a file artifact as well
+            transcript_text = stt_result.get("transcript")
+            if transcript_text:
+                try:
+                    t_filename = f"transcript_{item_id}.txt"
+                    t_path = f"storage/transcripts/{t_filename}"
+                    with open(t_path, "w", encoding="utf-8") as tf:
+                        tf.write(transcript_text)
+                    t_artifact_id = str(uuid.uuid4())
+                    cursor.execute(
+                        """
+                        INSERT INTO artifacts (id, run_item_id, type, file_path)
+                        VALUES (?, ?, 'transcript', ?)
+                        """,
+                        (t_artifact_id, item_id, t_path),
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to save transcript artifact for {item_id}: {e}")
     else:
         # STT testing: synthesize using ElevenLabs by default (configurable later), then transcribe with selected vendor
         tts_adapter = VENDOR_ADAPTERS["elevenlabs"]["tts"]

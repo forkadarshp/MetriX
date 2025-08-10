@@ -292,7 +292,7 @@ class ElevenLabsAdapter(VendorAdapter):
             client = ElevenLabs(api_key=self.api_key)
             with open(audio_path, 'rb') as audio_file:
                 result = client.speech_to_text.convert(
-                    audio=audio_file,
+                    file=audio_file,
                     model_id=model_id,
                 )
             transcript = result.text if hasattr(result, 'text') else str(result)
@@ -1061,12 +1061,12 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             # Evaluate via Deepgram STT (default nova-3) for WER/accuracy/confidence
             dg_params = pick_models("deepgram", "stt")
             stt_adapter = VENDOR_ADAPTERS["deepgram"]["stt"]
-            # Explicitly request raw STT (no formatting, no punctuation) for the evaluation
+            # Enable formatting and punctuation for better WER accuracy
             stt_result = await stt_adapter.transcribe(
                 audio_path,
                 **dg_params,
-                smart_format=False,
-                punctuate=False,
+                smart_format=True,
+                punctuate=True,
                 language="en-US",
             )
             if stt_result.get("status") == "success":

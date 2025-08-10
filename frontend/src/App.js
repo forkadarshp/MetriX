@@ -54,7 +54,7 @@ function ExportToolbar({ runs }) {
 }
 
 
-const API_BASE_URL = import.meta?.env?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 function App() {
   const [dashboardStats, setDashboardStats] = useState({});

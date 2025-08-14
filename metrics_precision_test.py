@@ -33,7 +33,7 @@ class MetricsPrecisionTester:
             except:
                 pass
         
-        self.base_url = base_url or "https://bb2717fd-0473-4c41-aa2c-5cd7204e7bca.preview.emergentagent.com"
+        self.base_url = base_url or "https://file-reader-6.preview.emergentagent.com"
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []

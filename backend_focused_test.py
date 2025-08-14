@@ -16,7 +16,7 @@ class FocusedBackendTester:
     def __init__(self, base_url: str = None):
         # Get base URL from environment or use default
         if base_url is None:
-            base_url = os.getenv('BACKEND_URL', 'https://setup-explorer.preview.emergentagent.com')
+            base_url = os.getenv('BACKEND_URL', 'https://file-reader-6.preview.emergentagent.com')
         
         self.base_url = base_url
         self.tests_run = 0

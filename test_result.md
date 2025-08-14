@@ -378,10 +378,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Frontend: Results - Play audio + labeled metrics"
-    - "Frontend: Dashboard filters (Vendor, Service)"
-    - "Frontend: Chained UX - hide Service dropdown + vendor checkboxes"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"

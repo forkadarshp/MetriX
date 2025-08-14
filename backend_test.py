@@ -977,49 +977,180 @@ class TTSSTTAPITester:
         
         return False
 
-    def test_review_request_1_scripts(self):
-        """Review Request Test 1: GET /api/scripts should return scripts array (non-empty)"""
-        print("\n🔍 Review Test 1: GET /api/scripts...")
+    def test_review_health_check(self):
+        """Review Request Test: GET /api/health returns status=healthy"""
+        print("\n🔍 Review Test: Health Check...")
         
-        success, response, status_code = self.make_request('GET', '/api/scripts')
+        success, response, status_code = self.make_request('GET', '/api/health')
         
         if not success:
-            self.log_test("Review Test 1 - Scripts", False, "Request failed")
+            self.log_test("Health Check", False, "Request failed")
             return False
         
         if status_code == 200:
             try:
                 data = response.json()
-                if 'scripts' in data and isinstance(data['scripts'], list) and len(data['scripts']) > 0:
-                    scripts = data['scripts']
-                    script_names = [s.get('name', 'unnamed') for s in scripts]
-                    self.log_test("Review Test 1 - Scripts", True, 
-                                f"Non-empty scripts array returned: {len(scripts)} scripts - {script_names}")
+                if 'status' in data and data['status'] == 'healthy':
+                    self.log_test("Health Check", True, f"Status: {data['status']}")
                     return True
                 else:
-                    self.log_test("Review Test 1 - Scripts", False, 
-                                f"Scripts array empty or missing: {data}")
-            except Exception as e:
-                self.log_test("Review Test 1 - Scripts", False, f"JSON parsing error: {str(e)}")
+                    self.log_test("Health Check", False, f"Invalid response: {data}")
+            except:
+                self.log_test("Health Check", False, "Invalid JSON response")
         else:
-            self.log_test("Review Test 1 - Scripts", False, f"Status code: {status_code}")
+            self.log_test("Health Check", False, f"Status code: {status_code}")
         
         return False
 
-    def test_review_request_2_quick_run(self):
-        """Review Request Test 2: POST /api/runs/quick with specific form fields"""
-        print("\n🔍 Review Test 2: POST /api/runs/quick with specific config...")
+    def test_review_scripts_endpoint(self):
+        """Review Request Test: GET /api/scripts returns non-empty scripts array with 2 scripts"""
+        print("\n🔍 Review Test: Scripts Endpoint...")
         
-        # Exact form data as specified in review request
+        success, response, status_code = self.make_request('GET', '/api/scripts')
+        
+        if not success:
+            self.log_test("Scripts Endpoint", False, "Request failed")
+            return False
+        
+        if status_code == 200:
+            try:
+                data = response.json()
+                if 'scripts' in data and isinstance(data['scripts'], list):
+                    scripts = data['scripts']
+                    if len(scripts) >= 2:  # Should have banking_script and general_script
+                        script_names = [s.get('name', '') for s in scripts]
+                        self.log_test("Scripts Endpoint", True, 
+                                    f"Found {len(scripts)} scripts: {script_names}")
+                        return True
+                    else:
+                        self.log_test("Scripts Endpoint", False, 
+                                    f"Expected at least 2 scripts, got {len(scripts)}")
+                else:
+                    self.log_test("Scripts Endpoint", False, "Invalid response structure")
+            except Exception as e:
+                self.log_test("Scripts Endpoint", False, f"JSON parsing error: {str(e)}")
+        else:
+            self.log_test("Scripts Endpoint", False, f"Status code: {status_code}")
+        
+        return False
+
+    def test_review_quick_run_isolated_tts(self):
+        """Review Request Test: Quick run isolated TTS with specific parameters"""
+        print("\n🔍 Review Test: Quick Run Isolated TTS...")
+        
+        # Form data as specified in review request
         form_data = {
-            'text': 'Hello testing',
+            'text': 'Hello backend test',
             'vendors': 'elevenlabs,deepgram',
             'mode': 'isolated',
+            'config': json.dumps({"service": "tts"})
+        }
+        
+        headers = {}  # Let requests handle form data headers
+        success, response, status_code = self.make_request('POST', '/api/runs/quick', 
+                                                         data=form_data, headers=headers)
+        
+        if not success:
+            self.log_test("Quick Run Isolated TTS", False, "Request failed")
+            return False
+        
+        if status_code == 200:
+            try:
+                data = response.json()
+                if 'run_id' in data and 'status' in data:
+                    run_id = data['run_id']
+                    self.created_run_ids.append(run_id)
+                    
+                    # Wait for run to complete
+                    max_wait_time = 60
+                    check_interval = 3
+                    
+                    for attempt in range(max_wait_time // check_interval):
+                        success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
+                        
+                        if success and status_code == 200:
+                            try:
+                                run_data = response.json()
+                                run = run_data['run']
+                                status = run.get('status', 'unknown')
+                                
+                                if status == 'completed':
+                                    items = run.get('items', [])
+                                    if items:
+                                        # Check for required metrics and transcript artifact
+                                        metrics_found = []
+                                        transcript_accessible = False
+                                        
+                                        for item in items:
+                                            metrics = item.get('metrics', [])
+                                            metric_names = [m.get('metric_name') for m in metrics]
+                                            metrics_found.extend(metric_names)
+                                            
+                                            # Check transcript artifact accessibility
+                                            item_id = item.get('id')
+                                            if item_id:
+                                                transcript_success, transcript_response, transcript_status = self.make_request(
+                                                    'GET', f'/api/transcript/transcript_{item_id}.txt', headers={}
+                                                )
+                                                if transcript_success and transcript_status == 200:
+                                                    transcript_accessible = True
+                                        
+                                        # Check for required metrics: tts_latency, audio_duration
+                                        required_metrics = ['tts_latency', 'audio_duration']
+                                        found_required = [m for m in required_metrics if m in metrics_found]
+                                        
+                                        if len(found_required) >= 2 and transcript_accessible:
+                                            self.log_test("Quick Run Isolated TTS", True, 
+                                                        f"Run completed successfully. Found metrics: {found_required}, Transcript accessible: {transcript_accessible}")
+                                            return True
+                                        else:
+                                            self.log_test("Quick Run Isolated TTS", False, 
+                                                        f"Missing required metrics or transcript. Found metrics: {found_required}, Transcript accessible: {transcript_accessible}")
+                                    else:
+                                        self.log_test("Quick Run Isolated TTS", False, "No items found in run")
+                                    return False
+                                elif status == 'failed':
+                                    self.log_test("Quick Run Isolated TTS", False, "Run failed during processing")
+                                    return False
+                                else:
+                                    print(f"   Waiting... Run status: {status} (attempt {attempt + 1})")
+                                    time.sleep(check_interval)
+                            except Exception as e:
+                                print(f"   Error checking run status: {str(e)}")
+                                time.sleep(check_interval)
+                        else:
+                            print(f"   Error fetching run details (attempt {attempt + 1})")
+                            time.sleep(check_interval)
+                    
+                    self.log_test("Quick Run Isolated TTS", False, "Run did not complete within timeout")
+                    return False
+                else:
+                    self.log_test("Quick Run Isolated TTS", False, f"Invalid response: {data}")
+            except Exception as e:
+                self.log_test("Quick Run Isolated TTS", False, f"JSON parsing error: {str(e)}")
+        else:
+            try:
+                error_data = response.json() if response else {}
+                self.log_test("Quick Run Isolated TTS", False, 
+                            f"Status code: {status_code}, Error: {error_data}")
+            except:
+                self.log_test("Quick Run Isolated TTS", False, f"Status code: {status_code}")
+        
+        return False
+
+    def test_review_quick_run_chained(self):
+        """Review Request Test: Quick run chained mode with specific parameters"""
+        print("\n🔍 Review Test: Quick Run Chained...")
+        
+        # Form data as specified in review request
+        form_data = {
+            'text': 'The quick brown fox',
+            'vendors': 'elevenlabs,deepgram',
+            'mode': 'chained',
             'config': json.dumps({
-                "service": "tts",
-                "models": {
-                    "elevenlabs": {"tts_model": "eleven_multilingual_v2"},
-                    "deepgram": {"stt_model": "nova-3"}
+                "chain": {
+                    "tts_vendor": "elevenlabs",
+                    "stt_vendor": "deepgram"
                 }
             })
         }
@@ -1029,7 +1160,7 @@ class TTSSTTAPITester:
                                                          data=form_data, headers=headers)
         
         if not success:
-            self.log_test("Review Test 2 - Quick Run", False, "Request failed")
+            self.log_test("Quick Run Chained", False, "Request failed")
             return False
         
         if status_code == 200:
@@ -1039,157 +1170,158 @@ class TTSSTTAPITester:
                     run_id = data['run_id']
                     self.created_run_ids.append(run_id)
                     
-                    # Wait for processing
-                    time.sleep(8)
+                    # Wait for run to complete
+                    max_wait_time = 90
+                    check_interval = 3
                     
-                    # Check run details for metrics and artifacts
-                    success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
-                    if success and status_code == 200:
-                        run_data = response.json()
-                        run = run_data['run']
-                        items = run.get('items', [])
+                    for attempt in range(max_wait_time // check_interval):
+                        success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
                         
-                        if items:
-                            # Check for required metrics and artifacts
-                            metrics_found = []
-                            artifacts_found = []
-                            
-                            for item in items:
-                                metrics = item.get('metrics', [])
-                                artifacts = item.get('artifacts', [])
+                        if success and status_code == 200:
+                            try:
+                                run_data = response.json()
+                                run = run_data['run']
+                                status = run.get('status', 'unknown')
                                 
-                                metric_names = [m.get('metric_name') for m in metrics]
-                                metrics_found.extend(metric_names)
-                                
-                                artifact_types = [a.get('type') for a in artifacts]
-                                artifacts_found.extend(artifact_types)
-                            
-                            # Check for required metrics: tts_latency, audio_duration, WER, accuracy, confidence
-                            required_metrics = ['tts_latency', 'audio_duration', 'wer', 'accuracy', 'confidence']
-                            found_required = [m for m in required_metrics if m in metrics_found]
-                            
-                            # Check for audio artifact
-                            has_audio_artifact = 'audio' in artifacts_found
-                            
-                            if len(found_required) >= 4 and has_audio_artifact:
-                                self.log_test("Review Test 2 - Quick Run", True, 
-                                            f"Run created successfully. Found metrics: {found_required}, Audio artifact: {has_audio_artifact}")
-                                return True
-                            else:
-                                self.log_test("Review Test 2 - Quick Run", False, 
-                                            f"Missing required metrics or artifacts. Found metrics: {found_required}, Audio: {has_audio_artifact}")
+                                if status == 'completed':
+                                    items = run.get('items', [])
+                                    if items:
+                                        # Check for required metrics: e2e_latency, tts_latency, stt_latency
+                                        metrics_found = []
+                                        
+                                        for item in items:
+                                            metrics = item.get('metrics', [])
+                                            metric_names = [m.get('metric_name') for m in metrics]
+                                            metrics_found.extend(metric_names)
+                                        
+                                        required_metrics = ['e2e_latency', 'tts_latency', 'stt_latency']
+                                        found_required = [m for m in required_metrics if m in metrics_found]
+                                        
+                                        if len(found_required) >= 3:
+                                            self.log_test("Quick Run Chained", True, 
+                                                        f"Chained run completed successfully. Found metrics: {found_required}")
+                                            return True
+                                        else:
+                                            self.log_test("Quick Run Chained", False, 
+                                                        f"Missing required metrics. Found metrics: {found_required}")
+                                    else:
+                                        self.log_test("Quick Run Chained", False, "No items found in run")
+                                    return False
+                                elif status == 'failed':
+                                    self.log_test("Quick Run Chained", False, "Run failed during processing")
+                                    return False
+                                else:
+                                    print(f"   Waiting... Run status: {status} (attempt {attempt + 1})")
+                                    time.sleep(check_interval)
+                            except Exception as e:
+                                print(f"   Error checking run status: {str(e)}")
+                                time.sleep(check_interval)
                         else:
-                            self.log_test("Review Test 2 - Quick Run", False, "No items found in run")
-                    else:
-                        self.log_test("Review Test 2 - Quick Run", False, "Failed to get run details")
+                            print(f"   Error fetching run details (attempt {attempt + 1})")
+                            time.sleep(check_interval)
+                    
+                    self.log_test("Quick Run Chained", False, "Run did not complete within timeout")
+                    return False
                 else:
-                    self.log_test("Review Test 2 - Quick Run", False, f"Invalid response: {data}")
+                    self.log_test("Quick Run Chained", False, f"Invalid response: {data}")
             except Exception as e:
-                self.log_test("Review Test 2 - Quick Run", False, f"JSON parsing error: {str(e)}")
+                self.log_test("Quick Run Chained", False, f"JSON parsing error: {str(e)}")
         else:
             try:
                 error_data = response.json() if response else {}
-                self.log_test("Review Test 2 - Quick Run", False, 
+                self.log_test("Quick Run Chained", False, 
                             f"Status code: {status_code}, Error: {error_data}")
             except:
-                self.log_test("Review Test 2 - Quick Run", False, f"Status code: {status_code}")
+                self.log_test("Quick Run Chained", False, f"Status code: {status_code}")
         
         return False
 
-    def test_review_request_3_chained_run(self):
-        """Review Request Test 3: POST /api/runs with JSON body for chained mode"""
-        print("\n🔍 Review Test 3: POST /api/runs with chained mode config...")
+    def test_review_export_csv(self):
+        """Review Request Test: Export CSV with format='csv', all=true returns text/csv and size > 5KB"""
+        print("\n🔍 Review Test: Export CSV...")
         
-        # Exact JSON body as specified in review request
-        run_data = {
-            "mode": "chained",
-            "vendors": ["pair"],
-            "config": {
-                "chain": {
-                    "tts_vendor": "deepgram",
-                    "stt_vendor": "elevenlabs"
-                },
-                "models": {
-                    "deepgram": {"tts_model": "aura-2-thalia-en"},
-                    "elevenlabs": {"stt_model": "scribe_v1"}
-                }
-            },
-            "text_inputs": ["Testing chained mode with specific vendor pairing"]
+        export_data = {
+            "format": "csv",
+            "all": True
         }
         
-        success, response, status_code = self.make_request('POST', '/api/runs', data=run_data)
+        success, response, status_code = self.make_request('POST', '/api/export', data=export_data)
         
         if not success:
-            self.log_test("Review Test 3 - Chained Run", False, "Request failed")
+            self.log_test("Export CSV", False, "Request failed")
+            return False
+        
+        if status_code == 200:
+            try:
+                content_type = response.headers.get('content-type', '')
+                content_length = len(response.content) if response else 0
+                
+                # Check content type is text/csv
+                if 'text/csv' in content_type or 'application/csv' in content_type:
+                    if content_length > 5120:  # > 5KB
+                        self.log_test("Export CSV", True, 
+                                    f"CSV export successful: {content_type}, {content_length} bytes")
+                        return True
+                    else:
+                        self.log_test("Export CSV", False, 
+                                    f"CSV file too small: {content_length} bytes (expected > 5KB)")
+                else:
+                    self.log_test("Export CSV", False, f"Wrong content type: {content_type}")
+            except Exception as e:
+                self.log_test("Export CSV", False, f"Error checking response: {str(e)}")
+        else:
+            try:
+                error_data = response.json() if response else {}
+                self.log_test("Export CSV", False, 
+                            f"Status code: {status_code}, Error: {error_data}")
+            except:
+                self.log_test("Export CSV", False, f"Status code: {status_code}")
+        
+        return False
+
+    def test_review_runs_endpoint(self):
+        """Review Request Test: GET /api/runs returns last runs with items and metrics_summary field"""
+        print("\n🔍 Review Test: Runs Endpoint...")
+        
+        success, response, status_code = self.make_request('GET', '/api/runs')
+        
+        if not success:
+            self.log_test("Runs Endpoint", False, "Request failed")
             return False
         
         if status_code == 200:
             try:
                 data = response.json()
-                if 'run_id' in data and 'status' in data:
-                    run_id = data['run_id']
-                    self.created_run_ids.append(run_id)
-                    
-                    # Wait for processing
-                    time.sleep(10)
-                    
-                    # Check run details for specific metrics
-                    success, response, status_code = self.make_request('GET', f'/api/runs/{run_id}')
-                    if success and status_code == 200:
-                        run_data = response.json()
-                        run = run_data['run']
-                        items = run.get('items', [])
+                if 'runs' in data and isinstance(data['runs'], list):
+                    runs = data['runs']
+                    if runs:
+                        # Check first run for required structure
+                        run = runs[0]
+                        has_items = 'items' in run and isinstance(run['items'], list)
+                        has_metrics_summary = False
                         
-                        if items:
-                            item = items[0]  # Check first item
-                            metrics_json = item.get('metrics_json', '{}')
-                            
-                            try:
-                                metrics_data = json.loads(metrics_json) if metrics_json else {}
-                                
-                                # Check for required fields in metrics_json
-                                required_fields = ['service_type', 'tts_vendor', 'stt_vendor']
-                                found_fields = [f for f in required_fields if f in metrics_data]
-                                
-                                # Check specific values
-                                service_type = metrics_data.get('service_type')
-                                tts_vendor = metrics_data.get('tts_vendor')
-                                stt_vendor = metrics_data.get('stt_vendor')
-                                
-                                # Check for latency metrics
-                                metrics = item.get('metrics', [])
-                                metric_names = [m.get('metric_name') for m in metrics]
-                                latency_metrics = ['e2e_latency', 'tts_latency', 'stt_latency']
-                                found_latencies = [m for m in latency_metrics if m in metric_names]
-                                
-                                if (service_type == 'e2e' and 
-                                    tts_vendor == 'deepgram' and 
-                                    stt_vendor == 'elevenlabs' and
-                                    len(found_latencies) >= 2):
-                                    self.log_test("Review Test 3 - Chained Run", True, 
-                                                f"Chained run successful. service_type={service_type}, tts_vendor={tts_vendor}, stt_vendor={stt_vendor}, latencies={found_latencies}")
-                                    return True
-                                else:
-                                    self.log_test("Review Test 3 - Chained Run", False, 
-                                                f"Incorrect metrics. service_type={service_type}, tts_vendor={tts_vendor}, stt_vendor={stt_vendor}, latencies={found_latencies}")
-                            except Exception as e:
-                                self.log_test("Review Test 3 - Chained Run", False, 
-                                            f"Error parsing metrics_json: {str(e)}")
+                        if has_items and run['items']:
+                            # Check if items have metrics_summary field
+                            for item in run['items']:
+                                if 'metrics_summary' in item:
+                                    has_metrics_summary = True
+                                    break
+                        
+                        if has_items and has_metrics_summary:
+                            self.log_test("Runs Endpoint", True, 
+                                        f"Found {len(runs)} runs with items and metrics_summary")
+                            return True
                         else:
-                            self.log_test("Review Test 3 - Chained Run", False, "No items found in run")
+                            self.log_test("Runs Endpoint", False, 
+                                        f"Missing items ({has_items}) or metrics_summary ({has_metrics_summary})")
                     else:
-                        self.log_test("Review Test 3 - Chained Run", False, "Failed to get run details")
+                        self.log_test("Runs Endpoint", False, "No runs found")
                 else:
-                    self.log_test("Review Test 3 - Chained Run", False, f"Invalid response: {data}")
+                    self.log_test("Runs Endpoint", False, "Invalid response structure")
             except Exception as e:
-                self.log_test("Review Test 3 - Chained Run", False, f"JSON parsing error: {str(e)}")
+                self.log_test("Runs Endpoint", False, f"JSON parsing error: {str(e)}")
         else:
-            try:
-                error_data = response.json() if response else {}
-                self.log_test("Review Test 3 - Chained Run", False, 
-                            f"Status code: {status_code}, Error: {error_data}")
-            except:
-                self.log_test("Review Test 3 - Chained Run", False, f"Status code: {status_code}")
+            self.log_test("Runs Endpoint", False, f"Status code: {status_code}")
         
         return False
 

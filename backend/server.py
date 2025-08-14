@@ -34,6 +34,14 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import jiwer for accurate WER calculation
+try:
+    import jiwer
+    JIWER_AVAILABLE = True
+except ImportError:
+    JIWER_AVAILABLE = False
+    logger.warning("jiwer not available - using fallback WER calculation (less accurate)")
+
 # Environment variables
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "dummy_eleven_key")

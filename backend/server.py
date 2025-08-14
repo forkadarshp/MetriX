@@ -525,24 +525,67 @@ VENDOR_ADAPTERS = {
 
 # Helper functions
 def calculate_wer(reference: str, hypothesis: str) -> float:
-    """Calculate Word Error Rate using simple implementation."""
-    ref_words = reference.lower().split()
-    hyp_words = hypothesis.lower().split()
+    """
+    Calculate Word Error Rate using industry-standard jiwer library when available.
+    Falls back to basic implementation if jiwer is not installed.
+    
+    Args:
+        reference: Ground truth text
+        hypothesis: Predicted/transcribed text
+        
+    Returns:
+        float: Word Error Rate (0.0 = perfect, 1.0 = completely wrong)
+    """
+    if JIWER_AVAILABLE:
+        try:
+            # Use jiwer for industry-standard WER calculation
+            # This handles proper text normalization, punctuation, etc.
+            return jiwer.wer(reference, hypothesis)
+        except Exception as e:
+            logger.warning(f"jiwer calculation failed, falling back to basic implementation: {e}")
+    
+    # Fallback to basic implementation (less accurate)
+    # Improved to handle basic normalization
+    import re
+    import string
+    
+    def normalize_text(text):
+        """Basic text normalization."""
+        # Convert to lowercase
+        text = text.lower()
+        # Remove punctuation
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+    
+    ref_normalized = normalize_text(reference)
+    hyp_normalized = normalize_text(hypothesis)
+    
+    ref_words = ref_normalized.split()
+    hyp_words = hyp_normalized.split()
+    
     if not ref_words:
         return 1.0 if hyp_words else 0.0
+    
+    # Levenshtein distance calculation
     m, n = len(ref_words), len(hyp_words)
     dp = [[0] * (n + 1) for _ in range(m + 1)]
+    
     for i in range(m + 1):
         dp[i][0] = i
     for j in range(n + 1):
         dp[0][j] = j
+        
     for i in range(1, m + 1):
         for j in range(1, n + 1):
             if ref_words[i-1] == hyp_words[j-1]:
                 dp[i][j] = dp[i-1][j-1]
             else:
                 dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
-    return dp[m][n] / len(ref_words)
+    
+    wer = dp[m][n] / len(ref_words)
+    return float(wer)
 
 def get_audio_duration_seconds(audio_path: str) -> float:
     """Return duration of audio file in seconds.

@@ -1325,7 +1325,7 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                     (stt_result["transcript"], audio_path, json.dumps(merged_meta), item_id),
                 )
                 metrics = [
-                    {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.1, "pass_fail": "pass" if wer <= 0.1 else "fail"},
+                    {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.15, "pass_fail": "pass" if wer <= 0.15 else "fail"},
                     {"name": "accuracy", "value": (1 - wer) * 100, "unit": "percent"},
                     {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"},
                     {"name": "stt_latency", "value": stt_latency, "unit": "seconds"},

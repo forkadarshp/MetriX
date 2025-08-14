@@ -372,6 +372,7 @@ metadata:
 
 test_plan:
   current_focus:
+    - "COMPLETED: Review request smoke tests - all 6 tests passed with 100% success rate"
     - "RESOLVED: Fix Deepgram TTS speak 400 Bad Request by using correct model+voice parameters (aura-2 + thalia)"
     - "RESOLVED: Harden audio duration/RTF to avoid off metrics in isolated multi-vendor runs"
   stuck_tasks: []

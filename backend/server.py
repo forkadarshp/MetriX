@@ -681,6 +681,89 @@ def get_audio_duration_seconds(audio_path: str) -> float:
     logger.warning(f"Unable to determine duration for {audio_path}")
     return 0.0
 
+def calculate_rtf(latency: float, audio_duration: float, metric_name: str = "RTF") -> Optional[float]:
+    """
+    Calculate Real-Time Factor with validation and bounds checking.
+    
+    RTF = processing_time / audio_duration
+    - RTF < 1.0 means faster than real-time
+    - RTF = 1.0 means real-time processing
+    - RTF > 1.0 means slower than real-time
+    
+    Args:
+        latency: Processing time in seconds
+        audio_duration: Audio duration in seconds
+        metric_name: Name for logging (e.g., "TTS RTF", "STT RTF")
+        
+    Returns:
+        float: RTF value, or None if calculation is invalid
+    """
+    if not audio_duration or audio_duration <= 0:
+        logger.debug(f"{metric_name}: Invalid audio duration {audio_duration}")
+        return None
+        
+    if latency < 0:
+        logger.warning(f"{metric_name}: Negative latency {latency}")
+        return None
+    
+    rtf = latency / audio_duration
+    
+    # Validation: RTF should typically be between 0.01 and 100
+    # Values outside this range are likely calculation errors
+    if rtf < 0.01:
+        logger.debug(f"{metric_name}: Unusually low RTF ({rtf:.4f}) - very fast processing")
+    elif rtf > 100:
+        logger.warning(f"{metric_name}: Unusually high RTF ({rtf:.4f}) - very slow processing or duration error")
+        # Don't return None, but log the warning for investigation
+    
+    return float(rtf)
+
+def get_precision_timer():
+    """
+    Get a high-precision monotonic timer function.
+    Uses time.perf_counter() for better precision than time.time().
+    
+    Returns:
+        function: Timer function that returns seconds as float
+    """
+    return time.perf_counter
+
+def validate_confidence(confidence: float, vendor: str = "unknown") -> float:
+    """
+    Validate and normalize confidence scores.
+    
+    Args:
+        confidence: Raw confidence value
+        vendor: Vendor name for logging
+        
+    Returns:
+        float: Validated confidence between 0.0 and 1.0
+    """
+    if confidence is None:
+        logger.debug(f"Confidence is None for {vendor}, defaulting to 0.0")
+        return 0.0
+    
+    try:
+        conf = float(confidence)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid confidence type for {vendor}: {type(confidence)}")
+        return 0.0
+    
+    # Clamp to valid range
+    if conf < 0.0:
+        logger.debug(f"Negative confidence ({conf}) for {vendor}, clamping to 0.0")
+        return 0.0
+    elif conf > 1.0:
+        if conf <= 100.0:
+            # Likely percentage, convert to ratio
+            logger.debug(f"Confidence {conf} for {vendor} appears to be percentage, converting to ratio")
+            return conf / 100.0
+        else:
+            logger.warning(f"Confidence {conf} for {vendor} is too high, clamping to 1.0")
+            return 1.0
+    
+    return conf
+
 # Database helper functions
 def get_db_connection():
     """Get SQLite database connection."""

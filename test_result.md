@@ -372,9 +372,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "COMPLETED: Review request smoke tests - all 6 tests passed with 100% success rate"
-    - "RESOLVED: Fix Deepgram TTS speak 400 Bad Request by using correct model+voice parameters (aura-2 + thalia)"
-    - "RESOLVED: Harden audio duration/RTF to avoid off metrics in isolated multi-vendor runs"
+    - "Frontend: Results - Play audio + labeled metrics"
+    - "Frontend: Dashboard filters (Vendor, Service)"
+    - "Frontend: Chained UX - hide Service dropdown + vendor checkboxes"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"

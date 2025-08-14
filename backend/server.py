@@ -1301,8 +1301,8 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 wer = calculate_wer(text_input, stt_result["transcript"]) 
                 duration = get_audio_duration_seconds(audio_path)
                 stt_latency = float(stt_result.get("latency") or 0.0)
-                # Guard unrealistic/zero durations
-                stt_rtf = (stt_latency / duration) if (duration and 0 < duration < 3600) else None
+                # Use the new RTF calculation helper with validation
+                stt_rtf = calculate_rtf(stt_latency, duration, "STT RTF")
                 # Merge metadata
                 existing_meta = {}
                 try:

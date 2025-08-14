@@ -300,12 +300,15 @@ frontend:
         comment: "Hooked Play button to <audio> using /api/audio/{filename}. Added labeled pills: E2E Latency, TTS Latency, STT Latency, WER, Accuracy, Confidence."
   - task: "Dashboard filters (Vendor, Service)"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "frontend/src/App.js"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ FILTERS FULLY FUNCTIONAL! Vendor filter (ElevenLabs, Deepgram, All) updates Recent Activity list correctly - tested all options and list updates accordingly. Service filter (All, TTS, STT, E2E) reflects correct service types with proper filtering logic. List is not empty with All filter (5 items shown). Both dropdown filters working as expected with proper UI feedback."
       - working: "needs_testing"
         agent: "main"
         comment: "Added Vendor and Service filters to Recent Activity list."

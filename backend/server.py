@@ -1224,8 +1224,8 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 except Exception:
                     pass
             tts_latency = float(tts_result.get("latency") or 0.0)
-            # Guard against bad duration readings. If duration is unrealistic (> 1 hour) or zero, null out RTF.
-            tts_rtf = (tts_latency / duration) if (duration and 0 < duration < 3600) else None
+            # Use the new RTF calculation helper with validation
+            tts_rtf = calculate_rtf(tts_latency, duration, "TTS RTF")
             metrics = [
                 {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
                 {"name": "audio_duration", "value": duration, "unit": "seconds"},

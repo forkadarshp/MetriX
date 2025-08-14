@@ -236,14 +236,14 @@ class ElevenLabsAdapter(VendorAdapter):
     
     async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_flash_v2_5", **params) -> Dict[str, Any]:
         """Synthesize text using ElevenLabs TTS."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.5)  # Simulate API delay
             audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
                 f.write(b"dummy_audio_data_elevenlabs")
-            resp_time = time.time()
+            resp_time = time.perf_counter()
             return {
                 "audio_path": audio_path,
                 "vendor": "elevenlabs",
@@ -265,11 +265,11 @@ class ElevenLabsAdapter(VendorAdapter):
                 audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
                 audio_path = f"storage/audio/{audio_filename}"
                 async_write = False
-                start_stream = time.time()
+                start_stream = time.perf_counter()
                 with open(audio_path, "wb") as f:
                     for chunk in audio_generator:
                         f.write(chunk)
-                end_stream = time.time()
+                end_stream = time.perf_counter()
                 return {
                     "audio_path": audio_path,
                     "vendor": "elevenlabs",
@@ -280,18 +280,18 @@ class ElevenLabsAdapter(VendorAdapter):
                 }
             except Exception as e:
                 logger.error(f"ElevenLabs synthesis error: {e}")
-                return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+                return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
     
     async def transcribe(self, audio_path: str, model_id: str = "scribe_v1", **params) -> Dict[str, Any]:
         """Transcribe audio using ElevenLabs STT (Scribe)."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.3)
             return {
                 "transcript": "Dummy transcription from ElevenLabs Scribe.",
                 "confidence": 0.92,
                 "vendor": "elevenlabs",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model_id}
             }
@@ -309,13 +309,13 @@ class ElevenLabsAdapter(VendorAdapter):
                 "transcript": transcript,
                 "confidence": confidence,
                 "vendor": "elevenlabs",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model_id}
             }
         except Exception as e:
             logger.error(f"ElevenLabs transcription error: {e}")
-            return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+            return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
 class DeepgramAdapter(VendorAdapter):
     """Deepgram STT/TTS adapter."""
@@ -326,7 +326,7 @@ class DeepgramAdapter(VendorAdapter):
     
     async def transcribe(self, audio_path: str, model: str = "nova-3", **params) -> Dict[str, Any]:
         """Transcribe audio using Deepgram STT."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.3)
             dummy_transcripts = [
@@ -341,7 +341,7 @@ class DeepgramAdapter(VendorAdapter):
                 "transcript": transcript,
                 "confidence": confidence,
                 "vendor": "deepgram",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model, "language": "en-US"}
             }
@@ -373,19 +373,19 @@ class DeepgramAdapter(VendorAdapter):
                     "transcript": transcript,
                     "confidence": confidence,
                     "vendor": "deepgram",
-                    "latency": time.time() - req_time,
+                    "latency": time.perf_counter() - req_time,
                     "status": "success",
                     "metadata": {"model": model, "language": "en-US"}
                 }
             except Exception as e:
                 logger.error(f"Deepgram transcription error: {e}")
-                return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+                return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
     async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "wav", sample_rate: int = 24000, **params) -> Dict[str, Any]:
         """Synthesize speech using Deepgram Speak API (Aura 2).
         Note: Use a containerized format (mp3) to ensure proper duration parsing across environments.
         """
-        req_time = time.time()
+        req_time = time.perf_counter()
         ttfb = None
         if self.is_dummy:
             await asyncio.sleep(0.4)
@@ -396,7 +396,7 @@ class DeepgramAdapter(VendorAdapter):
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model, "container": container, "sample_rate": sample_rate}
             }
@@ -440,24 +440,24 @@ class DeepgramAdapter(VendorAdapter):
                     if resp.status_code != 200:
                         error_text = await resp.aread()
                         logger.error(f"Deepgram TTS error response: {resp.status_code} - {error_text.decode()}")
-                        return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": time.time() - req_time}
+                        return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": time.perf_counter() - req_time}
                     async with aiofiles.open(audio_path, 'wb') as f:
                         async for chunk in resp.aiter_bytes(chunk_size=1024):
                             if ttfb is None:
-                                ttfb = time.time() - req_time
+                                ttfb = time.perf_counter() - req_time
                             await f.write(chunk)
                             file_size += len(chunk)
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "ttfb": ttfb,
                 "status": "success",
                 "metadata": {"model": model, "container": container, "sample_rate": sample_rate, "file_size": file_size}
             }
         except Exception as e:
             logger.error(f"Deepgram TTS error: {e}")
-            return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+            return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
 class AWSAdapter(VendorAdapter):
     """AWS Polly/Transcribe adapter using dummy implementation."""
@@ -470,7 +470,7 @@ class AWSAdapter(VendorAdapter):
     
     async def synthesize(self, text: str, voice: str = "Joanna", **params) -> Dict[str, Any]:
         """Synthesize text using AWS Polly."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.4)
             audio_filename = f"aws_polly_{uuid.uuid4().hex}.mp3"
@@ -481,16 +481,16 @@ class AWSAdapter(VendorAdapter):
                 "audio_path": audio_path,
                 "vendor": "aws_polly",
                 "voice": voice,
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"engine": "neural", "voice_id": voice}
             }
         else:
-            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.time() - req_time}
+            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.perf_counter() - req_time}
     
     async def transcribe(self, audio_path: str, **params) -> Dict[str, Any]:
         """Transcribe audio using AWS Transcribe."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.6)
             dummy_transcripts = [
@@ -505,12 +505,12 @@ class AWSAdapter(VendorAdapter):
                 "transcript": transcript,
                 "confidence": confidence,
                 "vendor": "aws_transcribe",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"job_name": f"job_{uuid.uuid4().hex}", "language": "en-US"}
             }
         else:
-            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.time() - req_time}
+            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.perf_counter() - req_time}
 
 # Initialize vendor adapters
 elevenlabs_adapter = ElevenLabsAdapter(ELEVEN_API_KEY)
@@ -721,7 +721,7 @@ def calculate_rtf(latency: float, audio_duration: float, metric_name: str = "RTF
 def get_precision_timer():
     """
     Get a high-precision monotonic timer function.
-    Uses time.perf_counter() for better precision than time.time().
+    Uses time.perf_counter() for better precision than time.perf_counter().
     
     Returns:
         function: Timer function that returns seconds as float
@@ -1694,7 +1694,7 @@ async def export_results(payload: Dict[str, Any]):
             for r in norm:
                 writer.writerow(r)
             csv_bytes = output.getvalue().encode("utf-8")
-            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.time())}.csv"}
+            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.perf_counter())}.csv"}
             return Response(content=csv_bytes, media_type="text/csv", headers=headers)
         elif fmt == "pdf":
             try:
@@ -1730,7 +1730,7 @@ async def export_results(payload: Dict[str, Any]):
             c.showPage()
             c.save()
             pdf_bytes = buffer.getvalue()
-            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.time())}.pdf"}
+            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.perf_counter())}.pdf"}
             return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
         else:
             raise HTTPException(status_code=400, detail="Invalid export format. Use 'csv' or 'pdf'.")

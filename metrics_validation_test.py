@@ -170,7 +170,7 @@ class MetricsValidator:
             (1.0, 1.0),        # Perfect confidence
             (0.0, 0.0),        # Zero confidence
             (-0.1, 0.0),       # Negative (clamp to 0)
-            (1.1, 1.0),        # > 1.0 (clamp to 1.0)
+            (1.1, 1.0),        # > 1.0 but <= 1.01 (clamp to 1.0)
             (95.0, 0.95),      # Percentage (convert)
             (100.0, 1.0),      # 100% (convert)
             (150.0, 1.0),      # > 100% (clamp)

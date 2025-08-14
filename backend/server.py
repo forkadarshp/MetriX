@@ -1421,9 +1421,9 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
     stt_latency = float(stt_result.get("latency") or 0.0)
     total_latency = tts_latency + stt_latency
     duration = get_audio_duration_seconds(audio_path)
-    # Guard unrealistic/zero durations
-    tts_rtf = (tts_latency / duration) if (duration and 0 < duration < 3600) else None
-    stt_rtf = (stt_latency / duration) if (duration and 0 < duration < 3600) else None
+    # Use the new RTF calculation helpers with validation
+    tts_rtf = calculate_rtf(tts_latency, duration, "TTS RTF (Chained)")
+    stt_rtf = calculate_rtf(stt_latency, duration, "STT RTF (Chained)")
     
     # Store results with correct vendor information
     cursor = conn.cursor()

@@ -314,12 +314,15 @@ frontend:
         comment: "Added Vendor and Service filters to Recent Activity list."
   - task: "Chained UX: hide Service dropdown + vendor checkboxes"
     implemented: true
-    working: "needs_testing"
+    working: true
     file: "frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ MODE-DEPENDENT UX WORKING PERFECTLY! Quick Test: Isolated mode shows Service selector and vendor checkboxes (3 checkboxes visible), hides chained selectors. Chained mode hides Service selector and vendor checkboxes, shows chained TTS/STT vendor selectors. Batch Test: Same mode-dependent behavior verified - isolated shows service/vendor options, chained shows pairing selectors. UI conditional rendering working exactly as specified."
       - working: "needs_testing"
         agent: "main"
         comment: "Chained mode now hides Service selector and vendor checkboxes; only pair selectors (TTS vendor, STT vendor) are shown."

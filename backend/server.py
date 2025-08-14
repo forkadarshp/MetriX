@@ -588,57 +588,97 @@ def calculate_wer(reference: str, hypothesis: str) -> float:
     return float(wer)
 
 def get_audio_duration_seconds(audio_path: str) -> float:
-    """Return duration of audio file in seconds.
-    Strategy:
-    - Prefer container-accurate readers (wave for WAV, mutagen for others)
-    - Sanity check the result (0 < duration < 3600s). If out-of-range, fall back to size-based estimate
-    - Size fallback:
-        • MP3: assume ~32kbps (conservative) → seconds ≈ bytes * 8 / 32000
-        • Other: assume PCM 24kHz mono 16-bit → seconds ≈ bytes / (24000 * 2)
+    """
+    Get audio duration in seconds with improved precision and reliability.
+    
+    Strategy (in order of preference):
+    1. Try mutagen for most formats (MP3, MP4/M4A, FLAC, OGG, etc.)
+    2. Try wave module for WAV files
+    3. Size-based estimation as last resort with better assumptions
+    
+    Args:
+        audio_path: Path to audio file
+        
+    Returns:
+        float: Duration in seconds, or 0.0 if unable to determine
     """
     p = Path(audio_path)
-    try:
-        ext = p.suffix.lower()
-        # 1) Container-accurate readers
-        if ext in [".wav", ".wave"]:
+    
+    if not p.exists():
+        logger.warning(f"Audio file does not exist: {audio_path}")
+        return 0.0
+    
+    ext = p.suffix.lower()
+    logger.debug(f"Getting duration for {audio_path} (format: {ext})")
+    
+    # Method 1: Try mutagen first (most reliable for all formats)
+    if MutagenFile is not None:
+        try:
+            mf = MutagenFile(str(p))
+            if mf is not None and hasattr(mf, 'info') and hasattr(mf.info, 'length'):
+                duration = float(mf.info.length)
+                # Sanity check: duration should be positive and reasonable (up to 24 hours)
+                if 0 < duration <= 86400:  # 24 hours max
+                    logger.debug(f"Mutagen duration: {duration:.3f}s")
+                    return duration
+                else:
+                    logger.warning(f"Mutagen returned unrealistic duration: {duration}s")
+        except Exception as e:
+            logger.debug(f"Mutagen failed for {audio_path}: {e}")
+    
+    # Method 2: Try wave module for WAV files
+    if ext in ['.wav', '.wave']:
+        try:
             with wave.open(str(p), 'rb') as wf:
                 frames = wf.getnframes()
                 rate = wf.getframerate()
-                if rate:
-                    dur = frames / float(rate)
-                    if 0 < dur < 3600:
-                        return float(dur)
-        if MutagenFile is not None:
-            try:
-                mf = MutagenFile(str(p))
-                if mf is not None and getattr(mf, 'info', None) and getattr(mf.info, 'length', None):
-                    dur = float(mf.info.length)
-                    if 0 < dur < 3600:
-                        return dur
-            except Exception:
-                # Mutagen can fail on partially written or rare containers
-                pass
-    except Exception as e:
-        logger.warning(f"Could not parse audio duration for {audio_path} via container readers: {e}")
-
-    # 2) Fallback to file-size based estimation
+                if rate > 0:
+                    duration = frames / float(rate)
+                    if 0 < duration <= 86400:  # 24 hours max
+                        logger.debug(f"Wave duration: {duration:.3f}s")
+                        return duration
+                    else:
+                        logger.warning(f"Wave returned unrealistic duration: {duration}s")
+        except Exception as e:
+            logger.debug(f"Wave module failed for {audio_path}: {e}")
+    
+    # Method 3: Size-based estimation (last resort)
     try:
-        sz = os.path.getsize(str(p))
-        ext = p.suffix.lower()
-        if ext == ".mp3":
-            # 32 kbps fallback (safe lower bound). Use higher bitrate if very small estimate (<0.5s)
-            dur = (sz * 8) / 32000.0
-            if dur < 0.5:
-                dur = (sz * 8) / 64000.0  # 64 kbps alternative
+        file_size = p.stat().st_size
+        logger.debug(f"File size: {file_size} bytes")
+        
+        # Improved size-based estimation with format-specific assumptions
+        if ext == '.mp3':
+            # Conservative estimate: assume 128kbps (common quality)
+            # Higher quality MP3s will give shorter estimates, which is safer than over-estimating
+            duration = (file_size * 8) / 128000.0
+        elif ext in ['.wav', '.wave']:
+            # Assume CD quality: 44.1kHz, 16-bit, stereo
+            duration = file_size / (44100 * 2 * 2)  # sample_rate * channels * bytes_per_sample
+        elif ext in ['.m4a', '.aac', '.mp4']:
+            # Assume 128kbps AAC (common quality)
+            duration = (file_size * 8) / 128000.0
+        elif ext in ['.flac']:
+            # FLAC is lossless, assume ~1MB per minute (rough average)
+            duration = file_size / (1024 * 1024 / 60.0)
+        elif ext in ['.ogg', '.opus']:
+            # Assume 128kbps for OGG Vorbis/Opus
+            duration = (file_size * 8) / 128000.0
         else:
-            # Assume PCM 24kHz mono, 16-bit
-            dur = sz / float(24000 * 2)
-        # Clamp to plausible bounds
-        if 0 < dur < 3600:
-            return float(dur)
+            # Generic fallback: assume moderate quality compressed audio
+            duration = (file_size * 8) / 128000.0
+        
+        # Sanity check the size-based estimate
+        if 0 < duration <= 86400:  # 24 hours max
+            logger.debug(f"Size-based estimate: {duration:.3f}s")
+            return duration
+        else:
+            logger.warning(f"Size-based estimate unrealistic: {duration}s")
+            
     except Exception as e:
-        logger.warning(f"Size-based duration fallback failed for {audio_path}: {e}")
-
+        logger.warning(f"Size-based estimation failed for {audio_path}: {e}")
+    
+    logger.warning(f"Unable to determine duration for {audio_path}")
     return 0.0
 
 # Database helper functions

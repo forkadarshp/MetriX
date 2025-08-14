@@ -304,7 +304,7 @@ class ElevenLabsAdapter(VendorAdapter):
                     model_id=model_id,
                 )
             transcript = result.text if hasattr(result, 'text') else str(result)
-            confidence = getattr(result, 'confidence', 0.95)  # Default confidence if not available
+            confidence = validate_confidence(getattr(result, 'confidence', 0.95), "elevenlabs")
             return {
                 "transcript": transcript,
                 "confidence": confidence,

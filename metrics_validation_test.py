@@ -214,17 +214,21 @@ class MetricsValidator:
         
         # Duration with tiny file
         try:
-            # Create minimal WAV file
+            # Create minimal WAV file (invalid but file exists)
             temp_fd, temp_path = tempfile.mkstemp(suffix='.wav')
-            os.write(temp_fd, b'RIFF\x24\x00\x00\x00WAVEfmt ')  # Minimal header
+            # Write minimal invalid WAV data
+            os.write(temp_fd, b'RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00')  # Incomplete header
             os.close(temp_fd)
             
             duration = get_audio_duration_seconds(temp_path)
-            self.log_test("Invalid WAV file handling", duration == 0.0)
+            # Should return 0.0 for invalid WAV files
+            test_passed = duration == 0.0
+            self.log_test("Invalid WAV file handling", test_passed, f"Duration: {duration}")
             
             os.unlink(temp_path)
-        except Exception:
-            self.log_test("Invalid WAV file handling", True, "Exception handled gracefully")
+        except Exception as e:
+            # If any exception occurs, that's also acceptable handling
+            self.log_test("Invalid WAV file handling", True, f"Exception handled: {str(e)[:50]}")
     
     def run_all_tests(self):
         """Run all validation tests."""

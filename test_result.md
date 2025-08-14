@@ -358,17 +358,15 @@ frontend:
 
   - task: "Isolated UX: conditional vendor config sections"
     implemented: true
-  - agent: "main"
-    message: "Implemented transcript file storage and serving API; frontend button to show transcript in Results tab. Please run backend tests to verify /api/transcript works and that run_items produce transcript artifacts for e2e and stt flows, and optionally tts eval path."
-  - agent: "testing"
-    message: "TRANSCRIPT STORAGE & SERVING FEATURE VALIDATION COMPLETE! ✅ All 16 review request tests passed with 100% success rate. CRITICAL FINDINGS: (1) Quick chained run (text='The quick brown fox', vendors='elevenlabs,deepgram', mode='chained'): Successfully creates transcript_{run_item_id}.txt files in storage/transcripts/ directory, GET /api/transcript/transcript_{run_item_id}.txt returns HTTP 200 text/plain with exact transcript content matching database ✅ (2) Isolated STT run (mode='isolated', service='stt', vendors='deepgram'): Creates transcript artifacts and serves them correctly via API endpoint ✅ (3) Isolated TTS run (mode='isolated', service='tts', vendors='elevenlabs'): TTS evaluation path via Deepgram STT saves transcript artifacts and serves them successfully ✅ (4) Frontend contract validation: GET /api/runs returns unchanged structure with items list and metrics_summary field preserved, no regressions detected ✅. Fixed missing dependencies (websockets, httpcore, deprecation, aenum, dataclasses-json). All transcript storage paths working: chained (E2E), isolated STT, and isolated TTS evaluation. Feature is production-ready!"
-
-    working: "needs_testing"
+    working: true
     file: "frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ CONDITIONAL UX VALIDATED! In isolated mode, Service selector and vendor checkboxes are visible and functional. In chained mode, these sections are properly hidden and chained pairing selectors (TTS vendor, STT vendor) are shown instead. Test execution working - quick test and batch test successfully initiated with new runs appearing in Results tab. UI state management working correctly across both Quick Test and Batch Test tabs."
       - working: "needs_testing"
         agent: "main"
         comment: "In isolated mode, only selected vendors' config panels are shown, and only fields relevant to the chosen service (TTS or STT)."

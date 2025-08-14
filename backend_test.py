@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Focused Backend API Testing for TTS/STT Benchmarking Dashboard
-Testing audio serving, new vendor capabilities, and specific endpoints per review request
+Backend Smoke Tests for TTS/STT Benchmarking Dashboard
+Testing specific endpoints as requested in the review request
 """
 
 import requests
@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 class TTSSTTAPITester:
-    def __init__(self, base_url: str = "https://file-reader-6.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://ca1beef0-f3e8-4074-8a05-b57df5d5544b.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0

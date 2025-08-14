@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 class BackendReviewTester:
-    def __init__(self, base_url: str = "https://c78c8b4c-cad4-4870-b393-0b372628dadb.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://setup-explorer.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0

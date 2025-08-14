@@ -88,8 +88,8 @@ class MetricsValidator:
             ("", "hello", 1.0),                   # Empty reference
             ("hello", "", 1.0),                   # Empty hypothesis
             ("", "", 0.0),                        # Both empty
-            ("Hello, World!", "hello world", 0.0 if JIWER_AVAILABLE else 0.5),  # Punctuation/case
-            ("The quick brown fox", "the quick brown fox", 0.0 if JIWER_AVAILABLE else 0.25),  # Case difference
+            ("Hello, World!", "hello world", 1.0),  # Case and punctuation differences - jiwer is sensitive
+            ("The quick brown fox", "the quick brown fox", 0.25),  # Case difference - jiwer is case-sensitive
         ]
         
         for ref, hyp, expected in test_cases:

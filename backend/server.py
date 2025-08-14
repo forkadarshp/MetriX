@@ -749,16 +749,18 @@ def validate_confidence(confidence: float, vendor: str = "unknown") -> float:
         logger.warning(f"Invalid confidence type for {vendor}: {type(confidence)}")
         return 0.0
     
-    # Clamp to valid range
+    # Clamp to valid range first
     if conf < 0.0:
         logger.debug(f"Negative confidence ({conf}) for {vendor}, clamping to 0.0")
         return 0.0
     elif conf > 1.0:
-        if conf <= 100.0:
+        # Only treat as percentage if it's a reasonable percentage (1.01 to 100.0)
+        if conf > 1.01 and conf <= 100.0:
             # Likely percentage, convert to ratio
             logger.debug(f"Confidence {conf} for {vendor} appears to be percentage, converting to ratio")
             return conf / 100.0
         else:
+            # Values slightly above 1.0 (like 1.1) are likely just over the limit, clamp to 1.0
             logger.warning(f"Confidence {conf} for {vendor} is too high, clamping to 1.0")
             return 1.0
     

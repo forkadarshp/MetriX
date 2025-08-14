@@ -1331,14 +1331,23 @@ class TTSSTTAPITester:
         print(f"Testing against: {self.base_url}")
         print("=" * 60)
         
-        # Test 1: GET /api/scripts should return scripts array (non-empty)
-        self.test_review_request_1_scripts()
+        # Test 1: Health check
+        self.test_review_health_check()
         
-        # Test 2: POST /api/runs/quick with specific form fields
-        self.test_review_request_2_quick_run()
+        # Test 2: Scripts endpoint
+        self.test_review_scripts_endpoint()
         
-        # Test 3: POST /api/runs with JSON body for chained mode
-        self.test_review_request_3_chained_run()
+        # Test 3: Quick run isolated TTS
+        self.test_review_quick_run_isolated_tts()
+        
+        # Test 4: Quick run chained
+        self.test_review_quick_run_chained()
+        
+        # Test 5: Export CSV
+        self.test_review_export_csv()
+        
+        # Test 6: Runs endpoint
+        self.test_review_runs_endpoint()
         
         # Print summary
         print("\n" + "=" * 60)
@@ -1356,106 +1365,11 @@ class TTSSTTAPITester:
             print(f"\n⚠️  {self.tests_run - self.tests_passed} smoke test(s) failed. Check the details above.")
             return 1
 
-    def run_focused_tests(self):
-        """Run focused tests based on review request"""
-        print("🚀 Starting Focused Backend API Testing...")
-        print(f"Testing against: {self.base_url}")
-        print("=" * 60)
-        
-        # 1. Audio serving test
-        self.test_audio_serving()
-        
-        # 2. Quick run creation (isolated, elevenlabs TTS)
-        self.test_quick_run_elevenlabs_isolated()
-        
-        # 3. Deepgram TTS path
-        self.test_deepgram_tts_isolated()
-        
-        # 4. Metrics labels in chained mode
-        self.test_chained_mode_metrics()
-        
-        # 5. Health check
-        self.test_health_endpoint()
-        
-        # Additional tests for tasks marked as needs_retesting
-        print("\n" + "=" * 60)
-        print("🔥 ADDITIONAL TESTS FOR NEEDS_RETESTING TASKS")
-        print("=" * 60)
-        
-        # 6. ElevenLabs STT (Scribe) - marked as needs_retesting
-        self.test_elevenlabs_stt_scribe()
-        
-        # 7. Deepgram TTS (Aura 2) detailed test - marked as needs_retesting
-        self.test_deepgram_tts_aura2_detailed()
-        
-        # Print summary
-        print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
-        print("=" * 60)
-        print(f"Total Tests: {self.tests_run}")
-        print(f"Passed: {self.tests_passed}")
-        print(f"Failed: {self.tests_run - self.tests_passed}")
-        print(f"Success Rate: {(self.tests_passed / self.tests_run * 100):.1f}%")
-        
-        if self.tests_passed == self.tests_run:
-            print("\n🎉 All tests passed! Backend is working correctly.")
-            return 0
-        else:
-            print(f"\n⚠️  {self.tests_run - self.tests_passed} test(s) failed. Check the details above.")
-            return 1
-
-    def run_all_tests(self):
-        """Run all backend tests"""
-        print("🚀 Starting TTS/STT Backend API Testing...")
-        print(f"Testing against: {self.base_url}")
-        print("=" * 60)
-        
-        # Core endpoint tests
-        self.test_health_endpoint()
-        self.test_dashboard_stats()
-        self.test_scripts_endpoint()
-        
-        # Run creation tests
-        self.test_quick_run_creation()
-        self.test_batch_run_creation()
-        
-        # Run retrieval tests
-        self.test_runs_listing()
-        self.test_run_details()
-        
-        # Processing tests
-        self.test_processing_completion()
-        
-        # Real API integration tests
-        print("\n" + "=" * 60)
-        print("🔥 REAL API INTEGRATION TESTS")
-        print("=" * 60)
-        self.test_real_elevenlabs_tts()
-        self.test_real_deepgram_stt()
-        self.test_chained_mode_real_apis()
-        
-        # Error handling tests
-        self.test_error_handling()
-        
-        # Print summary
-        print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
-        print("=" * 60)
-        print(f"Total Tests: {self.tests_run}")
-        print(f"Passed: {self.tests_passed}")
-        print(f"Failed: {self.tests_run - self.tests_passed}")
-        print(f"Success Rate: {(self.tests_passed / self.tests_run * 100):.1f}%")
-        
-        if self.tests_passed == self.tests_run:
-            print("\n🎉 All tests passed! Backend is working correctly.")
-            return 0
-        else:
-            print(f"\n⚠️  {self.tests_run - self.tests_passed} test(s) failed. Check the details above.")
-            return 1
-
 def main():
     """Main test execution"""
-    tester = TTSSTTAPITester()
+    # Get base URL from environment or use default
+    base_url = os.getenv('BACKEND_URL', 'https://ca1beef0-f3e8-4074-8a05-b57df5d5544b.preview.emergentagent.com')
+    tester = TTSSTTAPITester(base_url)
     # Run the specific smoke tests requested in the review
     return tester.run_review_smoke_tests()
 

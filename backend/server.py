@@ -236,19 +236,20 @@ class ElevenLabsAdapter(VendorAdapter):
     
     async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_flash_v2_5", **params) -> Dict[str, Any]:
         """Synthesize text using ElevenLabs TTS."""
-        req_time = time.perf_counter()
         if self.is_dummy:
+            req_time = time.perf_counter()
             await asyncio.sleep(0.5)  # Simulate API delay
+            api_resp_time = time.perf_counter()
+            # File I/O separate from API timing
             audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
                 f.write(b"dummy_audio_data_elevenlabs")
-            resp_time = time.perf_counter()
             return {
                 "audio_path": audio_path,
                 "vendor": "elevenlabs",
                 "voice": voice,
-                "latency": resp_time - req_time,  # pure API latency
+                "latency": api_resp_time - req_time,  # pure API latency only
                 "status": "success",
                 "metadata": {"model": model_id, "voice_id": voice}
             }
@@ -256,31 +257,45 @@ class ElevenLabsAdapter(VendorAdapter):
             try:
                 from elevenlabs import ElevenLabs
                 client = ElevenLabs(api_key=self.api_key)
-                # Generate audio (streamed) and measure until final byte
+                
+                # Measure only the API call time, not file I/O
+                req_time = time.perf_counter()
                 audio_generator = client.text_to_speech.convert(
                     text=text,
                     voice_id=voice,
                     model_id=model_id
                 )
+                # Collect all chunks to measure API completion time
+                audio_chunks = []
+                ttfb = None
+                for chunk in audio_generator:
+                    if ttfb is None:
+                        ttfb = time.perf_counter() - req_time
+                    audio_chunks.append(chunk)
+                api_resp_time = time.perf_counter()
+                
+                # File I/O separate from API timing
                 audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
                 audio_path = f"storage/audio/{audio_filename}"
-                async_write = False
-                start_stream = time.perf_counter()
                 with open(audio_path, "wb") as f:
-                    for chunk in audio_generator:
+                    for chunk in audio_chunks:
                         f.write(chunk)
-                end_stream = time.perf_counter()
+                
+                latency = api_resp_time - req_time
+                logger.info(f"ElevenLabs TTS API latency: {latency:.3f}s, TTFB: {ttfb:.3f}s for text length: {len(text)}")
+                
                 return {
                     "audio_path": audio_path,
                     "vendor": "elevenlabs",
                     "voice": voice,
-                    "latency": end_stream - req_time,  # request to final byte
+                    "latency": latency,  # pure API response time only
+                    "ttfb": ttfb,
                     "status": "success",
                     "metadata": {"model": model_id, "voice_id": voice}
                 }
             except Exception as e:
                 logger.error(f"ElevenLabs synthesis error: {e}")
-                return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
+                return {"status": "error", "error": str(e), "latency": 0.0}
     
     async def transcribe(self, audio_path: str, model_id: str = "scribe_v1", **params) -> Dict[str, Any]:
         """Transcribe audio using ElevenLabs STT (Scribe)."""
@@ -385,10 +400,11 @@ class DeepgramAdapter(VendorAdapter):
         """Synthesize speech using Deepgram Speak API (Aura 2).
         Note: Use a containerized format (mp3) to ensure proper duration parsing across environments.
         """
-        req_time = time.perf_counter()
-        ttfb = None
         if self.is_dummy:
-            await asyncio.sleep(0.4)
+            req_time = time.perf_counter()
+            await asyncio.sleep(0.4)  # Simulate API delay
+            api_resp_time = time.perf_counter()
+            # File I/O separate from API timing
             audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{ 'wav' if container == 'wav' else 'ogg' }"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
@@ -396,7 +412,7 @@ class DeepgramAdapter(VendorAdapter):
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
-                "latency": time.perf_counter() - req_time,
+                "latency": api_resp_time - req_time,  # pure API latency only
                 "status": "success",
                 "metadata": {"model": model, "container": container, "sample_rate": sample_rate}
             }
@@ -433,31 +449,59 @@ class DeepgramAdapter(VendorAdapter):
             file_ext = "wav" if container == "wav" else "mp3"
             audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{file_ext}"
             audio_path = f"storage/audio/{audio_filename}"
+            
+            # Measure only the API request/response time, not file I/O
+            req_time = time.perf_counter()
+            ttfb = None
             file_size = 0
+            audio_chunks = []
+            
             async with httpx.AsyncClient() as client:
                 logger.info(f"Deepgram TTS request: {url} with params: {params} and payload: {payload}")
                 async with client.stream("POST", url, headers=headers, params=params, json=payload, timeout=60.0) as resp:
                     if resp.status_code != 200:
                         error_text = await resp.aread()
                         logger.error(f"Deepgram TTS error response: {resp.status_code} - {error_text.decode()}")
-                        return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": time.perf_counter() - req_time}
-                    async with aiofiles.open(audio_path, 'wb') as f:
-                        async for chunk in resp.aiter_bytes(chunk_size=1024):
-                            if ttfb is None:
-                                ttfb = time.perf_counter() - req_time
-                            await f.write(chunk)
-                            file_size += len(chunk)
+                        return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": 0.0}
+                    
+                    # Collect all chunks to measure API completion time
+                    async for chunk in resp.aiter_bytes(chunk_size=1024):
+                        if ttfb is None:
+                            ttfb = time.perf_counter() - req_time
+                        audio_chunks.append(chunk)
+                        file_size += len(chunk)
+                    
+                    api_resp_time = time.perf_counter()
+            
+            # File I/O separate from API timing
+            async with aiofiles.open(audio_path, 'wb') as f:
+                for chunk in audio_chunks:
+                    await f.write(chunk)
+            
+            latency = api_resp_time - req_time
+
+            # Calculate duration from file size and known parameters for WAV to fix RTF
+            duration = 0.0
+            if container == "wav" and file_size > 44:
+                # Assuming mono, 16-bit PCM (2 bytes per sample)
+                bytes_per_second = int(sample_rate) * 2
+                audio_bytes = file_size - 44  # Subtract standard WAV header size
+                if bytes_per_second > 0:
+                    duration = audio_bytes / bytes_per_second
+
+            logger.info(f"Deepgram TTS API latency: {latency:.3f}s, TTFB: {ttfb:.3f}s for text length: {len(text)}")
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
-                "latency": time.perf_counter() - req_time,
+                "latency": latency,  # pure API response time only
                 "ttfb": ttfb,
                 "status": "success",
+                "duration": duration, # Return calculated duration
                 "metadata": {"model": model, "container": container, "sample_rate": sample_rate, "file_size": file_size}
             }
         except Exception as e:
             logger.error(f"Deepgram TTS error: {e}")
-            return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
+            return {"status": "error", "error": str(e), "latency": 0.0}
 
 class AWSAdapter(VendorAdapter):
     """AWS Polly/Transcribe adapter using dummy implementation."""
@@ -470,9 +514,11 @@ class AWSAdapter(VendorAdapter):
     
     async def synthesize(self, text: str, voice: str = "Joanna", **params) -> Dict[str, Any]:
         """Synthesize text using AWS Polly."""
-        req_time = time.perf_counter()
         if self.is_dummy:
-            await asyncio.sleep(0.4)
+            req_time = time.perf_counter()
+            await asyncio.sleep(0.4)  # Simulate API delay
+            api_resp_time = time.perf_counter()
+            # File I/O separate from API timing
             audio_filename = f"aws_polly_{uuid.uuid4().hex}.mp3"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
@@ -481,12 +527,12 @@ class AWSAdapter(VendorAdapter):
                 "audio_path": audio_path,
                 "vendor": "aws_polly",
                 "voice": voice,
-                "latency": time.perf_counter() - req_time,
+                "latency": api_resp_time - req_time,  # pure API latency only
                 "status": "success",
                 "metadata": {"engine": "neural", "voice_id": voice}
             }
         else:
-            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.perf_counter() - req_time}
+            return {"status": "error", "error": "Real AWS implementation not available", "latency": 0.0}
     
     async def transcribe(self, audio_path: str, **params) -> Dict[str, Any]:
         """Transcribe audio using AWS Transcribe."""
@@ -1213,27 +1259,26 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 "UPDATE run_items SET audio_path = ?, metrics_json = ? WHERE id = ?",
                 (audio_path, json.dumps(metrics_meta), item_id),
             )
-            duration = get_audio_duration_seconds(audio_path)
-            # If duration parser failed but file exists, fall back to a rough estimate using file size and codec hints
+            
+            # Prefer duration from TTS result if available (e.g., from Deepgram WAV calc)
+            duration = float(tts_result.get("duration") or 0.0)
             if not duration or duration <= 0:
-                try:
-                    sz = os.path.getsize(audio_path)
-                    # rough fallback: assume ~32kbps for mp3 if container suggests mp3; else assume PCM 24kHz mono 16-bit
-                    if str(audio_path).endswith('.mp3'):
-                        duration = max(duration or 0.0, (sz * 8) / (32000.0))
-                    else:
-                        duration = max(duration or 0.0, sz / (24000 * 2))
-                except Exception:
-                    pass
+                duration = get_audio_duration_seconds(audio_path)
+
             tts_latency = float(tts_result.get("latency") or 0.0)
+            tts_ttfb = float(tts_result.get("ttfb") or 0.0)
+            
             # Use the new RTF calculation helper with validation
             tts_rtf = calculate_rtf(tts_latency, duration, "TTS RTF")
             metrics = [
                 {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
                 {"name": "audio_duration", "value": duration, "unit": "seconds"},
             ]
+            if tts_ttfb > 0:
+                metrics.append({"name": "tts_ttfb", "value": tts_ttfb, "unit": "seconds"})
             if tts_rtf is not None:
                 metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
+            
             # Evaluate via Deepgram STT (default nova-3) for WER/accuracy/confidence
             dg_params = pick_models("deepgram", "stt")
             stt_adapter = VENDOR_ADAPTERS["deepgram"]["stt"]
@@ -1420,9 +1465,15 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
     # Metrics and storage
     wer = calculate_wer(text_input, stt_result["transcript"])
     tts_latency = float(tts_result.get("latency") or 0.0)
+    tts_ttfb = float(tts_result.get("ttfb") or 0.0)
     stt_latency = float(stt_result.get("latency") or 0.0)
     total_latency = tts_latency + stt_latency
-    duration = get_audio_duration_seconds(audio_path)
+    
+    # Prefer duration from TTS result if available (e.g., from Deepgram WAV calc)
+    duration = float(tts_result.get("duration") or 0.0)
+    if not duration or duration <= 0:
+        duration = get_audio_duration_seconds(audio_path)
+        
     # Use the new RTF calculation helpers with validation
     tts_rtf = calculate_rtf(tts_latency, duration, "TTS RTF (Chained)")
     stt_rtf = calculate_rtf(stt_latency, duration, "STT RTF (Chained)")
@@ -1470,6 +1521,8 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
         {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"},
         {"name": "audio_duration", "value": duration, "unit": "seconds"},
     ]
+    if tts_ttfb > 0:
+        metrics.append({"name": "tts_ttfb", "value": tts_ttfb, "unit": "seconds"})
     if tts_rtf is not None:
         metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
     if stt_rtf is not None:
@@ -1664,6 +1717,7 @@ async def export_results(payload: Dict[str, Any]):
                 "e2e_latency": metrics_map.get("e2e_latency"),
                 "tts_latency": metrics_map.get("tts_latency"),
                 "stt_latency": metrics_map.get("stt_latency"),
+                "tts_ttfb": metrics_map.get("tts_ttfb"),
                 "audio_duration": metrics_map.get("audio_duration"),
                 "tts_rtf": metrics_map.get("tts_rtf"),
                 "stt_rtf": metrics_map.get("stt_rtf"),
@@ -1686,6 +1740,7 @@ async def export_results(payload: Dict[str, Any]):
                 "e2e_latency",
                 "tts_latency",
                 "stt_latency",
+                "tts_ttfb",
                 "audio_duration",
                 "tts_rtf",
                 "stt_rtf",
@@ -1765,4 +1820,4 @@ async def serve_transcript(filename: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001, reload=True)

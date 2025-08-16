@@ -1,0 +1,1 @@
+rtf calculation test for stt processing

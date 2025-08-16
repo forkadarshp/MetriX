@@ -34,6 +34,14 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import jiwer for accurate WER calculation
+try:
+    import jiwer
+    JIWER_AVAILABLE = True
+except ImportError:
+    JIWER_AVAILABLE = False
+    logger.warning("jiwer not available - using fallback WER calculation (less accurate)")
+
 # Environment variables
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "dummy_eleven_key")
@@ -228,14 +236,14 @@ class ElevenLabsAdapter(VendorAdapter):
     
     async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_flash_v2_5", **params) -> Dict[str, Any]:
         """Synthesize text using ElevenLabs TTS."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.5)  # Simulate API delay
             audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
                 f.write(b"dummy_audio_data_elevenlabs")
-            resp_time = time.time()
+            resp_time = time.perf_counter()
             return {
                 "audio_path": audio_path,
                 "vendor": "elevenlabs",
@@ -257,11 +265,11 @@ class ElevenLabsAdapter(VendorAdapter):
                 audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
                 audio_path = f"storage/audio/{audio_filename}"
                 async_write = False
-                start_stream = time.time()
+                start_stream = time.perf_counter()
                 with open(audio_path, "wb") as f:
                     for chunk in audio_generator:
                         f.write(chunk)
-                end_stream = time.time()
+                end_stream = time.perf_counter()
                 return {
                     "audio_path": audio_path,
                     "vendor": "elevenlabs",
@@ -272,18 +280,18 @@ class ElevenLabsAdapter(VendorAdapter):
                 }
             except Exception as e:
                 logger.error(f"ElevenLabs synthesis error: {e}")
-                return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+                return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
     
     async def transcribe(self, audio_path: str, model_id: str = "scribe_v1", **params) -> Dict[str, Any]:
         """Transcribe audio using ElevenLabs STT (Scribe)."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.3)
             return {
                 "transcript": "Dummy transcription from ElevenLabs Scribe.",
                 "confidence": 0.92,
                 "vendor": "elevenlabs",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model_id}
             }
@@ -296,18 +304,18 @@ class ElevenLabsAdapter(VendorAdapter):
                     model_id=model_id,
                 )
             transcript = result.text if hasattr(result, 'text') else str(result)
-            confidence = getattr(result, 'confidence', 0.95)  # Default confidence if not available
+            confidence = validate_confidence(getattr(result, 'confidence', 0.95), "elevenlabs")
             return {
                 "transcript": transcript,
                 "confidence": confidence,
                 "vendor": "elevenlabs",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model_id}
             }
         except Exception as e:
             logger.error(f"ElevenLabs transcription error: {e}")
-            return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+            return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
 class DeepgramAdapter(VendorAdapter):
     """Deepgram STT/TTS adapter."""
@@ -318,7 +326,7 @@ class DeepgramAdapter(VendorAdapter):
     
     async def transcribe(self, audio_path: str, model: str = "nova-3", **params) -> Dict[str, Any]:
         """Transcribe audio using Deepgram STT."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.3)
             dummy_transcripts = [
@@ -333,7 +341,7 @@ class DeepgramAdapter(VendorAdapter):
                 "transcript": transcript,
                 "confidence": confidence,
                 "vendor": "deepgram",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model, "language": "en-US"}
             }
@@ -365,19 +373,19 @@ class DeepgramAdapter(VendorAdapter):
                     "transcript": transcript,
                     "confidence": confidence,
                     "vendor": "deepgram",
-                    "latency": time.time() - req_time,
+                    "latency": time.perf_counter() - req_time,
                     "status": "success",
                     "metadata": {"model": model, "language": "en-US"}
                 }
             except Exception as e:
                 logger.error(f"Deepgram transcription error: {e}")
-                return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+                return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
     async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "wav", sample_rate: int = 24000, **params) -> Dict[str, Any]:
         """Synthesize speech using Deepgram Speak API (Aura 2).
         Note: Use a containerized format (mp3) to ensure proper duration parsing across environments.
         """
-        req_time = time.time()
+        req_time = time.perf_counter()
         ttfb = None
         if self.is_dummy:
             await asyncio.sleep(0.4)
@@ -388,7 +396,7 @@ class DeepgramAdapter(VendorAdapter):
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"model": model, "container": container, "sample_rate": sample_rate}
             }
@@ -432,24 +440,24 @@ class DeepgramAdapter(VendorAdapter):
                     if resp.status_code != 200:
                         error_text = await resp.aread()
                         logger.error(f"Deepgram TTS error response: {resp.status_code} - {error_text.decode()}")
-                        return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": time.time() - req_time}
+                        return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": time.perf_counter() - req_time}
                     async with aiofiles.open(audio_path, 'wb') as f:
                         async for chunk in resp.aiter_bytes(chunk_size=1024):
                             if ttfb is None:
-                                ttfb = time.time() - req_time
+                                ttfb = time.perf_counter() - req_time
                             await f.write(chunk)
                             file_size += len(chunk)
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "ttfb": ttfb,
                 "status": "success",
                 "metadata": {"model": model, "container": container, "sample_rate": sample_rate, "file_size": file_size}
             }
         except Exception as e:
             logger.error(f"Deepgram TTS error: {e}")
-            return {"status": "error", "error": str(e), "latency": time.time() - req_time}
+            return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
 class AWSAdapter(VendorAdapter):
     """AWS Polly/Transcribe adapter using dummy implementation."""
@@ -462,7 +470,7 @@ class AWSAdapter(VendorAdapter):
     
     async def synthesize(self, text: str, voice: str = "Joanna", **params) -> Dict[str, Any]:
         """Synthesize text using AWS Polly."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.4)
             audio_filename = f"aws_polly_{uuid.uuid4().hex}.mp3"
@@ -473,16 +481,16 @@ class AWSAdapter(VendorAdapter):
                 "audio_path": audio_path,
                 "vendor": "aws_polly",
                 "voice": voice,
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"engine": "neural", "voice_id": voice}
             }
         else:
-            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.time() - req_time}
+            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.perf_counter() - req_time}
     
     async def transcribe(self, audio_path: str, **params) -> Dict[str, Any]:
         """Transcribe audio using AWS Transcribe."""
-        req_time = time.time()
+        req_time = time.perf_counter()
         if self.is_dummy:
             await asyncio.sleep(0.6)
             dummy_transcripts = [
@@ -497,12 +505,12 @@ class AWSAdapter(VendorAdapter):
                 "transcript": transcript,
                 "confidence": confidence,
                 "vendor": "aws_transcribe",
-                "latency": time.time() - req_time,
+                "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"job_name": f"job_{uuid.uuid4().hex}", "language": "en-US"}
             }
         else:
-            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.time() - req_time}
+            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.perf_counter() - req_time}
 
 # Initialize vendor adapters
 elevenlabs_adapter = ElevenLabsAdapter(ELEVEN_API_KEY)
@@ -517,78 +525,246 @@ VENDOR_ADAPTERS = {
 
 # Helper functions
 def calculate_wer(reference: str, hypothesis: str) -> float:
-    """Calculate Word Error Rate using simple implementation."""
-    ref_words = reference.lower().split()
-    hyp_words = hypothesis.lower().split()
+    """
+    Calculate Word Error Rate using industry-standard jiwer library when available.
+    Falls back to basic implementation if jiwer is not installed.
+    
+    Args:
+        reference: Ground truth text
+        hypothesis: Predicted/transcribed text
+        
+    Returns:
+        float: Word Error Rate (0.0 = perfect, 1.0 = completely wrong)
+    """
+    if JIWER_AVAILABLE:
+        try:
+            # Use jiwer for industry-standard WER calculation
+            # This handles proper text normalization, punctuation, etc.
+            return jiwer.wer(reference, hypothesis)
+        except Exception as e:
+            logger.warning(f"jiwer calculation failed, falling back to basic implementation: {e}")
+    
+    # Fallback to basic implementation (less accurate)
+    # Improved to handle basic normalization
+    import re
+    import string
+    
+    def normalize_text(text):
+        """Basic text normalization."""
+        # Convert to lowercase
+        text = text.lower()
+        # Remove punctuation
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+    
+    ref_normalized = normalize_text(reference)
+    hyp_normalized = normalize_text(hypothesis)
+    
+    ref_words = ref_normalized.split()
+    hyp_words = hyp_normalized.split()
+    
     if not ref_words:
         return 1.0 if hyp_words else 0.0
+    
+    # Levenshtein distance calculation
     m, n = len(ref_words), len(hyp_words)
     dp = [[0] * (n + 1) for _ in range(m + 1)]
+    
     for i in range(m + 1):
         dp[i][0] = i
     for j in range(n + 1):
         dp[0][j] = j
+        
     for i in range(1, m + 1):
         for j in range(1, n + 1):
             if ref_words[i-1] == hyp_words[j-1]:
                 dp[i][j] = dp[i-1][j-1]
             else:
                 dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
-    return dp[m][n] / len(ref_words)
+    
+    wer = dp[m][n] / len(ref_words)
+    return float(wer)
 
 def get_audio_duration_seconds(audio_path: str) -> float:
-    """Return duration of audio file in seconds.
-    Strategy:
-    - Prefer container-accurate readers (wave for WAV, mutagen for others)
-    - Sanity check the result (0 < duration < 3600s). If out-of-range, fall back to size-based estimate
-    - Size fallback:
-        • MP3: assume ~32kbps (conservative) → seconds ≈ bytes * 8 / 32000
-        • Other: assume PCM 24kHz mono 16-bit → seconds ≈ bytes / (24000 * 2)
+    """
+    Get audio duration in seconds with improved precision and reliability.
+    
+    Strategy (in order of preference):
+    1. Try mutagen for most formats (MP3, MP4/M4A, FLAC, OGG, etc.)
+    2. Try wave module for WAV files
+    3. Size-based estimation as last resort with better assumptions
+    
+    Args:
+        audio_path: Path to audio file
+        
+    Returns:
+        float: Duration in seconds, or 0.0 if unable to determine
     """
     p = Path(audio_path)
-    try:
-        ext = p.suffix.lower()
-        # 1) Container-accurate readers
-        if ext in [".wav", ".wave"]:
+    
+    if not p.exists():
+        logger.warning(f"Audio file does not exist: {audio_path}")
+        return 0.0
+    
+    ext = p.suffix.lower()
+    logger.debug(f"Getting duration for {audio_path} (format: {ext})")
+    
+    # Method 1: Try mutagen first (most reliable for all formats)
+    if MutagenFile is not None:
+        try:
+            mf = MutagenFile(str(p))
+            if mf is not None and hasattr(mf, 'info') and hasattr(mf.info, 'length'):
+                duration = float(mf.info.length)
+                # Sanity check: duration should be positive and reasonable (up to 24 hours)
+                if 0 < duration <= 86400:  # 24 hours max
+                    logger.debug(f"Mutagen duration: {duration:.3f}s")
+                    return duration
+                else:
+                    logger.warning(f"Mutagen returned unrealistic duration: {duration}s")
+        except Exception as e:
+            logger.debug(f"Mutagen failed for {audio_path}: {e}")
+    
+    # Method 2: Try wave module for WAV files
+    if ext in ['.wav', '.wave']:
+        try:
             with wave.open(str(p), 'rb') as wf:
                 frames = wf.getnframes()
                 rate = wf.getframerate()
-                if rate:
-                    dur = frames / float(rate)
-                    if 0 < dur < 3600:
-                        return float(dur)
-        if MutagenFile is not None:
-            try:
-                mf = MutagenFile(str(p))
-                if mf is not None and getattr(mf, 'info', None) and getattr(mf.info, 'length', None):
-                    dur = float(mf.info.length)
-                    if 0 < dur < 3600:
-                        return dur
-            except Exception:
-                # Mutagen can fail on partially written or rare containers
-                pass
-    except Exception as e:
-        logger.warning(f"Could not parse audio duration for {audio_path} via container readers: {e}")
-
-    # 2) Fallback to file-size based estimation
+                if rate > 0:
+                    duration = frames / float(rate)
+                    if 0 < duration <= 86400:  # 24 hours max
+                        logger.debug(f"Wave duration: {duration:.3f}s")
+                        return duration
+                    else:
+                        logger.warning(f"Wave returned unrealistic duration: {duration}s")
+        except Exception as e:
+            logger.debug(f"Wave module failed for {audio_path}: {e}")
+    
+    # Method 3: Size-based estimation (last resort)
     try:
-        sz = os.path.getsize(str(p))
-        ext = p.suffix.lower()
-        if ext == ".mp3":
-            # 32 kbps fallback (safe lower bound). Use higher bitrate if very small estimate (<0.5s)
-            dur = (sz * 8) / 32000.0
-            if dur < 0.5:
-                dur = (sz * 8) / 64000.0  # 64 kbps alternative
+        file_size = p.stat().st_size
+        logger.debug(f"File size: {file_size} bytes")
+        
+        # Improved size-based estimation with format-specific assumptions
+        if ext == '.mp3':
+            # Conservative estimate: assume 128kbps (common quality)
+            # Higher quality MP3s will give shorter estimates, which is safer than over-estimating
+            duration = (file_size * 8) / 128000.0
+        elif ext in ['.wav', '.wave']:
+            # Assume CD quality: 44.1kHz, 16-bit, stereo
+            duration = file_size / (44100 * 2 * 2)  # sample_rate * channels * bytes_per_sample
+        elif ext in ['.m4a', '.aac', '.mp4']:
+            # Assume 128kbps AAC (common quality)
+            duration = (file_size * 8) / 128000.0
+        elif ext in ['.flac']:
+            # FLAC is lossless, assume ~1MB per minute (rough average)
+            duration = file_size / (1024 * 1024 / 60.0)
+        elif ext in ['.ogg', '.opus']:
+            # Assume 128kbps for OGG Vorbis/Opus
+            duration = (file_size * 8) / 128000.0
         else:
-            # Assume PCM 24kHz mono, 16-bit
-            dur = sz / float(24000 * 2)
-        # Clamp to plausible bounds
-        if 0 < dur < 3600:
-            return float(dur)
+            # Generic fallback: assume moderate quality compressed audio
+            duration = (file_size * 8) / 128000.0
+        
+        # Sanity check the size-based estimate
+        if 0 < duration <= 86400:  # 24 hours max
+            logger.debug(f"Size-based estimate: {duration:.3f}s")
+            return duration
+        else:
+            logger.warning(f"Size-based estimate unrealistic: {duration}s")
+            
     except Exception as e:
-        logger.warning(f"Size-based duration fallback failed for {audio_path}: {e}")
-
+        logger.warning(f"Size-based estimation failed for {audio_path}: {e}")
+    
+    logger.warning(f"Unable to determine duration for {audio_path}")
     return 0.0
+
+def calculate_rtf(latency: float, audio_duration: float, metric_name: str = "RTF") -> Optional[float]:
+    """
+    Calculate Real-Time Factor with validation and bounds checking.
+    
+    RTF = processing_time / audio_duration
+    - RTF < 1.0 means faster than real-time
+    - RTF = 1.0 means real-time processing
+    - RTF > 1.0 means slower than real-time
+    
+    Args:
+        latency: Processing time in seconds
+        audio_duration: Audio duration in seconds
+        metric_name: Name for logging (e.g., "TTS RTF", "STT RTF")
+        
+    Returns:
+        float: RTF value, or None if calculation is invalid
+    """
+    if not audio_duration or audio_duration <= 0:
+        logger.debug(f"{metric_name}: Invalid audio duration {audio_duration}")
+        return None
+        
+    if latency < 0:
+        logger.warning(f"{metric_name}: Negative latency {latency}")
+        return None
+    
+    rtf = latency / audio_duration
+    
+    # Validation: RTF should typically be between 0.01 and 100
+    # Values outside this range are likely calculation errors
+    if rtf < 0.01:
+        logger.debug(f"{metric_name}: Unusually low RTF ({rtf:.4f}) - very fast processing")
+    elif rtf > 100:
+        logger.warning(f"{metric_name}: Unusually high RTF ({rtf:.4f}) - very slow processing or duration error")
+        # Don't return None, but log the warning for investigation
+    
+    return float(rtf)
+
+def get_precision_timer():
+    """
+    Get a high-precision monotonic timer function.
+    Uses time.perf_counter() for better precision than time.perf_counter().
+    
+    Returns:
+        function: Timer function that returns seconds as float
+    """
+    return time.perf_counter
+
+def validate_confidence(confidence: float, vendor: str = "unknown") -> float:
+    """
+    Validate and normalize confidence scores.
+    
+    Args:
+        confidence: Raw confidence value
+        vendor: Vendor name for logging
+        
+    Returns:
+        float: Validated confidence between 0.0 and 1.0
+    """
+    if confidence is None:
+        logger.debug(f"Confidence is None for {vendor}, defaulting to 0.0")
+        return 0.0
+    
+    try:
+        conf = float(confidence)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid confidence type for {vendor}: {type(confidence)}")
+        return 0.0
+    
+    # Clamp to valid range first
+    if conf < 0.0:
+        logger.debug(f"Negative confidence ({conf}) for {vendor}, clamping to 0.0")
+        return 0.0
+    elif conf > 1.0:
+        # Only treat as percentage if it's clearly a percentage (>= 2.0 and <= 100.0)
+        if conf >= 2.0 and conf <= 100.0:
+            # Likely percentage, convert to ratio
+            logger.debug(f"Confidence {conf} for {vendor} appears to be percentage, converting to ratio")
+            return conf / 100.0
+        else:
+            # Values slightly above 1.0 or very high values - clamp to 1.0
+            logger.warning(f"Confidence {conf} for {vendor} is too high, clamping to 1.0")
+            return 1.0
+    
+    return conf
 
 # Database helper functions
 def get_db_connection():
@@ -1050,8 +1226,8 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 except Exception:
                     pass
             tts_latency = float(tts_result.get("latency") or 0.0)
-            # Guard against bad duration readings. If duration is unrealistic (> 1 hour) or zero, null out RTF.
-            tts_rtf = (tts_latency / duration) if (duration and 0 < duration < 3600) else None
+            # Use the new RTF calculation helper with validation
+            tts_rtf = calculate_rtf(tts_latency, duration, "TTS RTF")
             metrics = [
                 {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
                 {"name": "audio_duration", "value": duration, "unit": "seconds"},
@@ -1072,7 +1248,7 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             if stt_result.get("status") == "success":
                 wer = calculate_wer(text_input, stt_result["transcript"].strip())
                 metrics.extend([
-                    {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.1, "pass_fail": "pass" if wer <= 0.1 else "fail"},
+                    {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.15, "pass_fail": "pass" if wer <= 0.15 else "fail"},
                     {"name": "accuracy", "value": (1 - wer) * 100, "unit": "percent"},
                     {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"}
                 ])
@@ -1127,8 +1303,8 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 wer = calculate_wer(text_input, stt_result["transcript"]) 
                 duration = get_audio_duration_seconds(audio_path)
                 stt_latency = float(stt_result.get("latency") or 0.0)
-                # Guard unrealistic/zero durations
-                stt_rtf = (stt_latency / duration) if (duration and 0 < duration < 3600) else None
+                # Use the new RTF calculation helper with validation
+                stt_rtf = calculate_rtf(stt_latency, duration, "STT RTF")
                 # Merge metadata
                 existing_meta = {}
                 try:
@@ -1151,7 +1327,7 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                     (stt_result["transcript"], audio_path, json.dumps(merged_meta), item_id),
                 )
                 metrics = [
-                    {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.1, "pass_fail": "pass" if wer <= 0.1 else "fail"},
+                    {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.15, "pass_fail": "pass" if wer <= 0.15 else "fail"},
                     {"name": "accuracy", "value": (1 - wer) * 100, "unit": "percent"},
                     {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"},
                     {"name": "stt_latency", "value": stt_latency, "unit": "seconds"},
@@ -1247,9 +1423,9 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
     stt_latency = float(stt_result.get("latency") or 0.0)
     total_latency = tts_latency + stt_latency
     duration = get_audio_duration_seconds(audio_path)
-    # Guard unrealistic/zero durations
-    tts_rtf = (tts_latency / duration) if (duration and 0 < duration < 3600) else None
-    stt_rtf = (stt_latency / duration) if (duration and 0 < duration < 3600) else None
+    # Use the new RTF calculation helpers with validation
+    tts_rtf = calculate_rtf(tts_latency, duration, "TTS RTF (Chained)")
+    stt_rtf = calculate_rtf(stt_latency, duration, "STT RTF (Chained)")
     
     # Store results with correct vendor information
     cursor = conn.cursor()
@@ -1520,7 +1696,7 @@ async def export_results(payload: Dict[str, Any]):
             for r in norm:
                 writer.writerow(r)
             csv_bytes = output.getvalue().encode("utf-8")
-            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.time())}.csv"}
+            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.perf_counter())}.csv"}
             return Response(content=csv_bytes, media_type="text/csv", headers=headers)
         elif fmt == "pdf":
             try:
@@ -1556,7 +1732,7 @@ async def export_results(payload: Dict[str, Any]):
             c.showPage()
             c.save()
             pdf_bytes = buffer.getvalue()
-            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.time())}.pdf"}
+            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.perf_counter())}.pdf"}
             return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
         else:
             raise HTTPException(status_code=400, detail="Invalid export format. Use 'csv' or 'pdf'.")

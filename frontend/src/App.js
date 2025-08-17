@@ -10,7 +10,7 @@ import { Progress } from './components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Alert, AlertDescription } from './components/ui/alert';
 import { Separator } from './components/ui/separator';
-import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker, FileText } from 'lucide-react';
+import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker, FileText, Star, User, MessageSquare } from 'lucide-react';
 import './App.css';
 
 function ExportToolbar({ runs }) {
@@ -287,6 +287,13 @@ function App() {
   const RunResultCard = ({ run }) => {
     const [expanded, setExpanded] = useState(false);
 
+    const classifyService = (item) => {
+      if (item.transcript && !item.audio_path) return 'stt';
+      if (item.audio_path && !item.transcript) return 'tts';
+      if (item.audio_path && item.transcript) return 'e2e';
+      return 'unknown';
+    };
+
     const renderServiceBadge = (item) => {
       const service = item.transcript && item.audio_path
         ? 'E2E'
@@ -385,6 +392,25 @@ function App() {
         return enhancedBadge('Audio', `${duration}s`, 'bg-blue-100 text-blue-800 border-blue-200', tooltip);
       }
       
+      if (name === 'ttfb' || name === 'tts_ttfb') {
+        const ms = (num * 1000).toFixed(0);
+        const color = num <= 0.5 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num <= 1.5 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const tooltip = `Time to First Byte: ${ms}ms - ${num <= 0.5 ? 'Fast' : num <= 1.5 ? 'Average' : 'Slow'} initial response time. Measures server response latency.`;
+        return enhancedBadge('TTFB', `${ms}ms`, color, tooltip);
+      }
+      
+      if (name === 'rtf' || name === 'tts_rtf' || name === 'stt_rtf') {
+        const rtfValue = num.toFixed(2);
+        const color = num <= 0.5 ? 'bg-green-100 text-green-800 border-green-200' : 
+                     num <= 1.0 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
+                     'bg-red-100 text-red-800 border-red-200';
+        const efficiency = num <= 0.5 ? 'Excellent' : num <= 1.0 ? 'Good' : 'Needs Improvement';
+        const tooltip = `Real-Time Factor: ${rtfValue}x - ${efficiency} processing efficiency. ${num < 1 ? 'Faster than real-time' : 'Slower than real-time'}.`;
+        return enhancedBadge('RTF', `${rtfValue}x`, color, tooltip);
+      }
+      
       return (
         <Badge variant="secondary" className="text-xs">
           {name}: {isNaN(num) ? value : num.toFixed(3)}
@@ -392,12 +418,13 @@ function App() {
       );
     };
 
-    const AudioControls = ({ item }) => {
+    const AudioControls = ({ item, uniqueUserCount = 0, onRatingUpdate }) => {
       const [playing, setPlaying] = useState(false);
       const [showTranscript, setShowTranscript] = useState(false);
       const [transcriptText, setTranscriptText] = useState('');
       const [transcriptLoading, setTranscriptLoading] = useState(false);
       const [transcriptError, setTranscriptError] = useState('');
+      const [showRatingModal, setShowRatingModal] = useState(false);
       const audioRef = React.useRef(null);
       const hasAudio = !!item.audio_path;
       const hasTranscript = !!item.transcript || !!item.audio_path;
@@ -559,15 +586,448 @@ function App() {
               <FileText className="h-3 w-3 mr-1" />
               {transcriptLoading ? 'Loading...' : showTranscript ? 'Hide Transcript' : 'Show Transcript'}
             </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowRatingModal(true)}
+              className="bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
+            >
+              <Star className="h-3 w-3 mr-1" />
+              Rate
+              {uniqueUserCount > 0 && (
+                <span className="ml-1 text-xs bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full">
+                  {uniqueUserCount}
+                </span>
+              )}
+            </Button>
             {showTranscript && (
               <div className="ml-2 max-w-xl text-xs bg-white p-3 rounded border shadow-sm">
                 {getTranscriptDisplay()}
               </div>
             )}
           </>
+          <RatingModal 
+            item={item} 
+            isOpen={showRatingModal} 
+            onClose={() => setShowRatingModal(false)}
+            onRatingUpdate={onRatingUpdate}
+          />
         </div>
       );
     };
+
+    const RatingModal = ({ item, isOpen, onClose, onRatingUpdate }) => {
+      const [subjectiveMetrics, setSubjectiveMetrics] = useState([]);
+      const [userRatings, setUserRatings] = useState({});
+      const [userName, setUserName] = useState('');
+      const [comments, setComments] = useState({});
+      const [loading, setLoading] = useState(false);
+      const [existingRatings, setExistingRatings] = useState({});
+      const [averageRatings, setAverageRatings] = useState({});
+
+      const serviceType = classifyService(item);
+      const actualServiceType = serviceType === 'e2e' ? 'tts' : serviceType;
+
+      useEffect(() => {
+        if (isOpen && actualServiceType !== 'unknown') {
+          fetchSubjectiveMetrics();
+          fetchExistingRatings();
+        }
+      }, [isOpen, actualServiceType, item.id]);
+
+      const fetchSubjectiveMetrics = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/subjective-metrics/${actualServiceType}`);
+          if (response.ok) {
+            const data = await response.json();
+            setSubjectiveMetrics(data.subjective_metrics || []);
+          }
+        } catch (error) {
+          console.error('Error fetching subjective metrics:', error);
+        }
+      };
+
+      const fetchExistingRatings = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/user-ratings/${item.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            const avgRatings = {};
+            data.average_ratings.forEach(rating => {
+              avgRatings[rating.subjective_metric_id] = {
+                avg: rating.avg_rating,
+                count: rating.rating_count
+              };
+            });
+            setAverageRatings(avgRatings);
+          }
+        } catch (error) {
+          console.error('Error fetching existing ratings:', error);
+        }
+      };
+
+      const handleRatingChange = (metricId, rating) => {
+        setUserRatings(prev => ({
+          ...prev,
+          [metricId]: rating
+        }));
+      };
+
+      const handleCommentChange = (metricId, comment) => {
+        setComments(prev => ({
+          ...prev,
+          [metricId]: comment
+        }));
+      };
+
+      const handleSubmit = async () => {
+        if (!userName.trim()) {
+          alert('Please enter your name');
+          return;
+        }
+
+        // Check if all metrics have been rated
+        const missingRatings = subjectiveMetrics.filter(metric => !userRatings[metric.id]);
+        if (missingRatings.length > 0) {
+          const missingNames = missingRatings.map(metric => metric.name).join(', ');
+          alert(`Please rate all metrics. Missing ratings for: ${missingNames}`);
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/user-ratings`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              run_item_id: item.id,
+              user_name: userName.trim(),
+              ratings: userRatings,
+              comments: comments
+            })
+          });
+
+          if (response.ok) {
+            alert('Rating submitted successfully!');
+            fetchExistingRatings(); // Refresh average ratings
+            if (onRatingUpdate) {
+              onRatingUpdate(); // Refresh parent component's data
+            }
+            onClose();
+            // Reset form
+            setUserRatings({});
+            setComments({});
+            setUserName('');
+          } else {
+            const errorData = await response.json();
+            alert(`Error submitting rating: ${errorData.detail || 'Unknown error'}`);
+          }
+        } catch (error) {
+          console.error('Error submitting rating:', error);
+          alert('Error submitting rating. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const renderStarRating = (metricId, currentRating = 0) => {
+        return (
+          <div className="flex items-center space-x-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => handleRatingChange(metricId, star)}
+                className={`text-lg ${
+                  star <= currentRating 
+                    ? 'text-yellow-400 hover:text-yellow-500' 
+                    : 'text-gray-300 hover:text-yellow-300'
+                } transition-colors`}
+              >
+                <Star className="h-5 w-5 fill-current" />
+              </button>
+            ))}
+            <span className="text-sm text-gray-600 ml-2">
+              {currentRating > 0 ? `${currentRating}/5` : 'Not rated'}
+            </span>
+          </div>
+        );
+      };
+
+      if (!isOpen) return null;
+
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Rate {actualServiceType.toUpperCase()} Quality
+                </h2>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onClose}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="text-sm font-medium text-gray-700 mb-1">Item Details:</div>
+                <div className="text-sm text-gray-600">
+                  <strong>Vendor:</strong> {item.vendor} | <strong>Service:</strong> {serviceType.toUpperCase()}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  <strong>Text:</strong> {item.text_input}
+                </div>
+              </div>
+
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-sm text-blue-800">
+                  <strong>Note:</strong> All metrics below are required. Please rate every aspect before submitting.
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <Label htmlFor="userName" className="text-sm font-medium">Your Name *</Label>
+                <Input
+                  id="userName"
+                  type="text"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="Enter your name for tracking"
+                  className="mt-1"
+                />
+              </div>
+
+              <div className="space-y-6">
+                {subjectiveMetrics.map((metric) => (
+                  <div key={metric.id} className={`border rounded-lg p-4 ${!userRatings[metric.id] ? 'border-red-200 bg-red-50/50' : 'border-gray-200'}`}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">
+                          {metric.name}
+                          <span className="text-red-500 ml-1">*</span>
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">{metric.description}</p>
+                        {averageRatings[metric.id] && (
+                          <div className="text-xs text-blue-600 mt-2">
+                            Average: {averageRatings[metric.id].avg.toFixed(1)}/5 
+                            ({averageRatings[metric.id].count} rating{averageRatings[metric.id].count !== 1 ? 's' : ''})
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="mb-3">
+                      {renderStarRating(metric.id, userRatings[metric.id] || 0)}
+                    </div>
+
+                    <div>
+                      <Label htmlFor={`comment-${metric.id}`} className="text-xs text-gray-600">
+                        Optional Comment
+                      </Label>
+                      <Textarea
+                        id={`comment-${metric.id}`}
+                        value={comments[metric.id] || ''}
+                        onChange={(e) => handleCommentChange(metric.id, e.target.value)}
+                        placeholder="Add any additional feedback..."
+                        rows={2}
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {subjectiveMetrics.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No subjective metrics available for {actualServiceType.toUpperCase()} services.
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <Button variant="outline" onClick={onClose} disabled={loading}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSubmit} 
+                  disabled={loading || !userName.trim() || subjectiveMetrics.some(metric => !userRatings[metric.id])}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {loading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Submitting...</span>
+                    </div>
+                  ) : (
+                    'Submit Rating'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const ItemCard = ({ item }) => {
+      const [subjectiveRatings, setSubjectiveRatings] = useState({});
+      const [uniqueUserCount, setUniqueUserCount] = useState(0);
+      
+      const fetchSubjectiveRatings = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/user-ratings/${item.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            const ratings = {};
+            data.average_ratings.forEach(rating => {
+              ratings[rating.subjective_metric_id] = {
+                name: rating.name,
+                avg: rating.avg_rating,
+                count: rating.rating_count,
+                service_type: rating.service_type
+              };
+            });
+            setSubjectiveRatings(ratings);
+            setUniqueUserCount(data.unique_user_count || 0);
+          }
+        } catch (error) {
+          console.error('Error fetching subjective ratings:', error);
+        }
+      };
+      
+      useEffect(() => {
+        fetchSubjectiveRatings();
+      }, [item.id]);
+      
+      return (
+        <div className="border rounded-lg p-4 bg-gray-50/50">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              {item.vendor === 'elevenlabs' && <Speaker className="h-4 w-4 text-purple-600" />}
+              {item.vendor === 'deepgram' && <Mic className="h-4 w-4 text-green-600" />}
+              {item.vendor === 'aws' && <Zap className="h-4 w-4 text-orange-600" />}
+              <span className="font-medium capitalize">{item.vendor}</span>
+              {renderServiceBadge(item)}
+              <Badge variant="outline" className={getStatusColor(item.status)}>
+                {item.status}
+              </Badge>
+            </div>
+            <AudioControls item={item} uniqueUserCount={uniqueUserCount} onRatingUpdate={fetchSubjectiveRatings} />
+          </div>
+        
+        <div className="text-sm mb-3">
+          <div className="font-medium text-gray-700 mb-1">Input:</div>
+          <div className="text-gray-600 bg-white p-2 rounded border">
+            {item.text_input}
+          </div>
+        </div>
+        
+        {item.transcript && (
+          <div className="text-sm mb-3">
+            <div className="font-medium text-gray-700 mb-1">Transcript:</div>
+            <div className="text-gray-600 bg-white p-2 rounded border">
+              {item.transcript}
+            </div>
+          </div>
+        )}
+        
+        {item.metrics_summary && (
+          <div className="space-y-3">
+            {(() => {
+              const metrics = item.metrics_summary.split('|').map((metric) => {
+                const [name, value] = metric.split(':');
+                return { name, value };
+              });
+              
+              // Group metrics by type
+              const performanceMetrics = metrics.filter(m => 
+                ['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration'].includes(m.name)
+              );
+              const qualityMetrics = metrics.filter(m => 
+                ['wer', 'accuracy', 'confidence', 'bleu', 'rouge'].includes(m.name)
+              );
+              const otherMetrics = metrics.filter(m => 
+                !['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration', 'wer', 'accuracy', 'confidence', 'bleu', 'rouge'].includes(m.name)
+              );
+              
+              // Add subjective metrics
+              const subjectiveMetricsArray = Object.values(subjectiveRatings);
+              
+              return (
+                <>
+                  {performanceMetrics.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Performance Metrics
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {performanceMetrics.map((metric, midx) => (
+                          <MetricBadge key={midx} name={metric.name} value={metric.value} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {qualityMetrics.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
+                        <Target className="h-3 w-3" />
+                        Quality Metrics
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {qualityMetrics.map((metric, midx) => (
+                          <MetricBadge key={midx} name={metric.name} value={metric.value} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {otherMetrics.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
+                        <BarChart3 className="h-3 w-3" />
+                        Other Metrics
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {otherMetrics.map((metric, midx) => (
+                          <MetricBadge key={midx} name={metric.name} value={metric.value} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {subjectiveMetricsArray.length > 0 && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        User Ratings ({subjectiveMetricsArray.reduce((total, m) => total + m.count, 0)} total)
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {subjectiveMetricsArray.map((metric, midx) => (
+                          <Badge 
+                            key={midx} 
+                            variant="secondary" 
+                            className="text-xs bg-amber-100 text-amber-800 border-amber-200"
+                            title={`Average of ${metric.count} user rating${metric.count !== 1 ? 's' : ''}`}
+                          >
+                            {metric.name}: {metric.avg.toFixed(1)}/5 ⭐
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+    );
+  };
 
     return (
       <Card className="mb-4">
@@ -597,52 +1057,53 @@ function App() {
         
         {expanded && (
           <CardContent className="pt-0">
-            <div className="space-y-4">
-              {run.items?.map((item, idx) => (
-                <div key={item.id} className="border rounded-lg p-4 bg-gray-50/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      {item.vendor === 'elevenlabs' && <Speaker className="h-4 w-4 text-purple-600" />}
-                      {item.vendor === 'deepgram' && <Mic className="h-4 w-4 text-green-600" />}
-                      {item.vendor === 'aws' && <Zap className="h-4 w-4 text-orange-600" />}
-                      <span className="font-medium capitalize">{item.vendor}</span>
-                      {renderServiceBadge(item)}
-                      <Badge variant="outline" className={getStatusColor(item.status)}>
-                        {item.status}
-                      </Badge>
-                    </div>
-                    <AudioControls item={item} />
-                  </div>
-                  
-                  <div className="text-sm mb-3">
-                    <div className="font-medium text-gray-700 mb-1">Input:</div>
-                    <div className="text-gray-600 bg-white p-2 rounded border">
-                      {item.text_input}
-                    </div>
-                  </div>
-                  
-                  {item.transcript && (
-                    <div className="text-sm mb-3">
-                      <div className="font-medium text-gray-700 mb-1">Transcript:</div>
-                      <div className="text-gray-600 bg-white p-2 rounded border">
-                        {item.transcript}
+            {(() => {
+              const items = run.items || [];
+              const ttsItems = items.filter((it) => classifyService(it) === 'tts');
+              const sttItems = items.filter((it) => {
+                const svc = classifyService(it);
+                return svc === 'stt' || svc === 'e2e';
+              });
+              return (
+                <div className="space-y-8">
+                  {ttsItems.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 pb-2 border-b border-purple-200">
+                        <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-200 font-semibold">
+                          <Speaker className="h-3 w-3 mr-1" />
+                          TTS Results
+                        </Badge>
+                        <span className="text-sm text-gray-600">{ttsItems.length} item{ttsItems.length > 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="space-y-4 pl-2">
+                        {ttsItems.map((item) => (
+                          <ItemCard key={item.id} item={item} />
+                        ))}
                       </div>
                     </div>
                   )}
-                  
-                  {item.metrics_summary && (
-                    <div className="flex flex-wrap gap-2">
-                      {item.metrics_summary.split('|').map((metric, midx) => {
-                        const [name, value] = metric.split(':');
-                        return (
-                          <MetricBadge key={midx} name={name} value={value} />
-                        );
-                      })}
+                  {sttItems.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 pb-2 border-b border-green-200">
+                        <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-200 font-semibold">
+                          <Mic className="h-3 w-3 mr-1" />
+                          STT Results
+                        </Badge>
+                        <span className="text-sm text-gray-600">{sttItems.length} item{sttItems.length > 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="space-y-4 pl-2">
+                        {sttItems.map((item) => (
+                          <ItemCard key={item.id} item={item} />
+                        ))}
+                      </div>
                     </div>
                   )}
+                  {ttsItems.length === 0 && sttItems.length === 0 && (
+                    <div className="text-sm text-gray-500">No items to display.</div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </CardContent>
         )}
       </Card>

@@ -34,6 +34,10 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# For debugging - temporarily set debug logs to show as info
+def debug_log(msg):
+    logger.info(f"DEBUG: {msg}")
+
 # Import jiwer for accurate WER calculation
 try:
     import jiwer
@@ -155,6 +159,29 @@ def init_database():
             FOREIGN KEY (run_item_id) REFERENCES run_items (id)
         );
         
+        CREATE TABLE IF NOT EXISTS subjective_metrics (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            service_type TEXT NOT NULL CHECK (service_type IN ('tts', 'stt')),
+            scale_min INTEGER DEFAULT 1,
+            scale_max INTEGER DEFAULT 5,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS user_ratings (
+            id TEXT PRIMARY KEY,
+            run_item_id TEXT NOT NULL,
+            user_name TEXT NOT NULL,
+            subjective_metric_id TEXT NOT NULL,
+            rating INTEGER NOT NULL,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (run_item_id) REFERENCES run_items (id),
+            FOREIGN KEY (subjective_metric_id) REFERENCES subjective_metrics (id),
+            UNIQUE(run_item_id, user_name, subjective_metric_id)
+        );
+        
         -- Insert default project and user
         INSERT OR IGNORE INTO users (id, name, role) VALUES ('default_user', 'Default User', 'admin');
         INSERT OR IGNORE INTO projects (id, name, description) VALUES ('default_project', 'Default Project', 'Default benchmarking project');
@@ -170,6 +197,18 @@ def init_database():
         ('item_3', 'banking_script', 'Please verify your identity by providing your social security number.', 'en-US', 'security'),
         ('item_4', 'general_script', 'The quick brown fox jumps over the lazy dog.', 'en-US', 'pangram'),
         ('item_5', 'general_script', 'Hello world, this is a test of the speech recognition system.', 'en-US', 'test');
+        
+        -- Insert subjective metrics for TTS
+        INSERT OR IGNORE INTO subjective_metrics (id, name, description, service_type, scale_min, scale_max) VALUES 
+        ('tts_naturalness', 'Speech Naturalness', 'How natural and human-like does the speech sound?', 'tts', 1, 5),
+        ('tts_disfluency', 'Disfluency Handling', 'How well does the system handle pauses, hesitations, and speech disfluencies?', 'tts', 1, 5),
+        ('tts_context', 'Context Awareness', 'How well does the speech reflect the context and meaning of the text?', 'tts', 1, 5),
+        ('tts_prosody', 'Prosody Accuracy', 'How accurate are the rhythm, stress, and intonation patterns?', 'tts', 1, 5);
+        
+        -- Insert subjective metrics for STT  
+        INSERT OR IGNORE INTO subjective_metrics (id, name, description, service_type, scale_min, scale_max) VALUES 
+        ('stt_disfluency', 'Disfluency Recognition', 'How well does the system recognize and handle speech disfluencies?', 'stt', 1, 5),
+        ('stt_language_switch', 'Language Switching Accuracy', 'How accurately does the system handle language switches within speech?', 'stt', 1, 5);
     """)
     
     conn.commit()
@@ -215,6 +254,12 @@ class MetricResult(BaseModel):
     threshold: Optional[float] = None
     pass_fail: Optional[str] = None
 
+class UserRatingSubmit(BaseModel):
+    run_item_id: str
+    user_name: str
+    ratings: Dict[str, int]  # subjective_metric_id -> rating
+    comments: Optional[Dict[str, str]] = {}  # subjective_metric_id -> comment
+
 # Vendor Adapters
 class VendorAdapter:
     """Base class for vendor adapters."""
@@ -245,11 +290,16 @@ class ElevenLabsAdapter(VendorAdapter):
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
                 f.write(b"dummy_audio_data_elevenlabs")
+            
+            latency = api_resp_time - req_time
+            ttfb = latency * 0.2  # Simulate TTFB as 20% of total latency
+            
             return {
                 "audio_path": audio_path,
                 "vendor": "elevenlabs",
                 "voice": voice,
-                "latency": api_resp_time - req_time,  # pure API latency only
+                "latency": latency,  # pure API latency only
+                "ttfb": ttfb,
                 "status": "success",
                 "metadata": {"model": model_id, "voice_id": voice}
             }
@@ -282,7 +332,9 @@ class ElevenLabsAdapter(VendorAdapter):
                         f.write(chunk)
                 
                 latency = api_resp_time - req_time
-                logger.info(f"ElevenLabs TTS API latency: {latency:.3f}s, TTFB: {ttfb:.3f}s for text length: {len(text)}")
+                # Safe logging - handle case where ttfb might be None
+                ttfb_str = f"{ttfb:.3f}s" if ttfb is not None else "N/A"
+                logger.info(f"ElevenLabs TTS API latency: {latency:.3f}s, TTFB: {ttfb_str} for text length: {len(text)}")
                 
                 return {
                     "audio_path": audio_path,
@@ -396,23 +448,33 @@ class DeepgramAdapter(VendorAdapter):
                 logger.error(f"Deepgram transcription error: {e}")
                 return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
-    async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "wav", sample_rate: int = 24000, **params) -> Dict[str, Any]:
+    async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "mp3", sample_rate: int = 24000, **params) -> Dict[str, Any]:
         """Synthesize speech using Deepgram Speak API (Aura 2).
         Note: Use a containerized format (mp3) to ensure proper duration parsing across environments.
         """
+        debug_log(f"Deepgram synthesize called with: model={model}, voice={voice}, container={container}, sample_rate={sample_rate}, params={params}")
         if self.is_dummy:
             req_time = time.perf_counter()
             await asyncio.sleep(0.4)  # Simulate API delay
             api_resp_time = time.perf_counter()
             # File I/O separate from API timing
-            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{ 'wav' if container == 'wav' else 'ogg' }"
+            file_ext = "wav" if container == "wav" else "mp3"
+            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{file_ext}"
             audio_path = f"storage/audio/{audio_filename}"
             with open(audio_path, "wb") as f:
                 f.write(b"dummy_deepgram_tts_audio")
+            
+            # Simulate duration based on text length for dummy mode
+            dummy_duration = max(1.0, len(text) * 0.05)  # ~50ms per character
+            latency = api_resp_time - req_time
+            ttfb = latency * 0.3  # Simulate TTFB as 30% of total latency
+            
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
-                "latency": api_resp_time - req_time,  # pure API latency only
+                "latency": latency,  # pure API latency only
+                "ttfb": ttfb,
+                "duration": dummy_duration,
                 "status": "success",
                 "metadata": {"model": model, "container": container, "sample_rate": sample_rate}
             }
@@ -483,13 +545,34 @@ class DeepgramAdapter(VendorAdapter):
             # Calculate duration from file size and known parameters for WAV to fix RTF
             duration = 0.0
             if container == "wav" and file_size > 44:
-                # Assuming mono, 16-bit PCM (2 bytes per sample)
-                bytes_per_second = int(sample_rate) * 2
+                # For Deepgram Aura, try both mono and stereo assumptions
+                # bytes_per_sample = 2 (16-bit)
+                mono_bps = int(sample_rate) * 2  # mono
+                stereo_bps = int(sample_rate) * 2 * 2  # stereo
                 audio_bytes = file_size - 44  # Subtract standard WAV header size
-                if bytes_per_second > 0:
-                    duration = audio_bytes / bytes_per_second
+                
+                if mono_bps > 0 and stereo_bps > 0:
+                    mono_duration = audio_bytes / mono_bps
+                    stereo_duration = audio_bytes / stereo_bps
+                    
+                    # Heuristic: pick the duration that seems more reasonable (1-10 seconds for typical TTS)
+                    if 1.0 <= stereo_duration <= 10.0:
+                        duration = stereo_duration
+                        debug_log(f"Using stereo duration: {duration:.3f}s")
+                    elif 1.0 <= mono_duration <= 10.0:
+                        duration = mono_duration
+                        debug_log(f"Using mono duration: {duration:.3f}s")
+                    else:
+                        # Default to stereo if both are outside reasonable range
+                        duration = stereo_duration
+                        debug_log(f"Both durations unrealistic, defaulting to stereo: {duration:.3f}s")
+                        
+                debug_log(f"Deepgram WAV duration calc: file_size={file_size}, audio_bytes={audio_bytes}, sample_rate={sample_rate}, mono_dur={mono_duration:.3f}s, stereo_dur={stereo_duration:.3f}s, chosen={duration:.3f}s")
 
-            logger.info(f"Deepgram TTS API latency: {latency:.3f}s, TTFB: {ttfb:.3f}s for text length: {len(text)}")
+            # Safe logging - handle case where ttfb might be None
+            ttfb_str = f"{ttfb:.3f}s" if ttfb is not None else "N/A"
+            logger.info(f"Deepgram TTS API latency: {latency:.3f}s, TTFB: {ttfb_str}, duration: {duration:.3f}s for text length: {len(text)}")
+            
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",
@@ -1237,13 +1320,16 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                         voice = parts[2] if parts[1] == "2" else parts[1]
             except Exception:
                 pass
-            return {"model": tts_model, "voice": voice}
+            result = {"model": tts_model, "voice": voice}
+            debug_log(f"Deepgram TTS pick_models result: {result}")
+            return result
         return {}
 
     if service == "tts":
         # TTS testing only, but assess using default STT (Deepgram nova-3)
         adapter = VENDOR_ADAPTERS[vendor]["tts"]
         tts_params = pick_models(vendor, "tts")
+        debug_log(f"TTS synthesis params for {vendor}: {tts_params}")
         tts_result = await adapter.synthesize(text_input, **tts_params)
         if tts_result.get("status") == "success":
             audio_path = tts_result["audio_path"]
@@ -1262,11 +1348,16 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             
             # Prefer duration from TTS result if available (e.g., from Deepgram WAV calc)
             duration = float(tts_result.get("duration") or 0.0)
+            debug_log(f"Duration from TTS result: {duration}")
             if not duration or duration <= 0:
                 duration = get_audio_duration_seconds(audio_path)
+                debug_log(f"Duration from get_audio_duration_seconds: {duration}")
 
             tts_latency = float(tts_result.get("latency") or 0.0)
             tts_ttfb = float(tts_result.get("ttfb") or 0.0)
+            
+            # Debug logging for RTF calculation
+            debug_log(f"TTS RTF calculation: vendor={vendor}, latency={tts_latency}, duration={duration}, audio_path={audio_path}")
             
             # Use the new RTF calculation helper with validation
             tts_rtf = calculate_rtf(tts_latency, duration, "TTS RTF")
@@ -1274,7 +1365,7 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
                 {"name": "audio_duration", "value": duration, "unit": "seconds"},
             ]
-            if tts_ttfb > 0:
+            if tts_ttfb is not None and tts_ttfb > 0:
                 metrics.append({"name": "tts_ttfb", "value": tts_ttfb, "unit": "seconds"})
             if tts_rtf is not None:
                 metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
@@ -1444,12 +1535,15 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
                         voice = parts[2] if parts[1] == "2" else parts[1]
             except Exception:
                 pass
-            return {"model": tts_model, "voice": voice}
+            result = {"model": tts_model, "voice": voice}
+            debug_log(f"Deepgram TTS pick_models result: {result}")
+            return result
         return {}
 
     # Step 1: TTS
     tts_adapter = VENDOR_ADAPTERS[tts_vendor]["tts"]
     tts_params = pick_models(tts_vendor, "tts")
+    debug_log(f"Chained TTS synthesis params for {tts_vendor}: {tts_params}")
     tts_result = await tts_adapter.synthesize(text_input, **tts_params)
     if tts_result.get("status") != "success":
         return
@@ -1521,7 +1615,7 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
         {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"},
         {"name": "audio_duration", "value": duration, "unit": "seconds"},
     ]
-    if tts_ttfb > 0:
+    if tts_ttfb is not None and tts_ttfb > 0:
         metrics.append({"name": "tts_ttfb", "value": tts_ttfb, "unit": "seconds"})
     if tts_rtf is not None:
         metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
@@ -1695,6 +1789,33 @@ async def export_results(payload: Dict[str, Any]):
                             metrics_map[k] = float(v)
                         except Exception:
                             metrics_map[k] = v
+            
+            # Fetch subjective ratings for this run item
+            subjective_ratings = {}
+            item_id = row.get("id")
+            try:
+                cursor.execute(
+                    """
+                    SELECT 
+                        sm.name,
+                        AVG(ur.rating) as avg_rating,
+                        COUNT(ur.rating) as rating_count
+                    FROM user_ratings ur
+                    JOIN subjective_metrics sm ON ur.subjective_metric_id = sm.id
+                    WHERE ur.run_item_id = ?
+                    GROUP BY ur.subjective_metric_id
+                    """,
+                    (item_id,)
+                )
+                rating_results = cursor.fetchall()
+                for rating_row in rating_results:
+                    rating_name = rating_row["name"].replace(" ", "_").lower()
+                    avg_rating = round(rating_row["avg_rating"], 2)
+                    rating_count = rating_row["rating_count"]
+                    subjective_ratings[f"subj_{rating_name}"] = avg_rating
+                    subjective_ratings[f"subj_{rating_name}_count"] = rating_count
+            except Exception as e:
+                logger.debug(f"Error fetching subjective ratings for item {item_id}: {e}")
             service = "UNKNOWN"
             if "e2e_latency" in metrics_map:
                 service = "E2E"
@@ -1702,7 +1823,8 @@ async def export_results(payload: Dict[str, Any]):
                 service = "STT"
             elif "tts_latency" in metrics_map:
                 service = "TTS"
-            norm.append({
+            # Create the base row data
+            row_data = {
                 "run_id": row.get("run_id"),
                 "run_item_id": row.get("id"),
                 "started_at": row.get("started_at"),
@@ -1722,10 +1844,16 @@ async def export_results(payload: Dict[str, Any]):
                 "tts_rtf": metrics_map.get("tts_rtf"),
                 "stt_rtf": metrics_map.get("stt_rtf"),
                 "audio_path": row.get("audio_path"),
-            })
+            }
+            
+            # Add subjective ratings to the row
+            row_data.update(subjective_ratings)
+            norm.append(row_data)
         if fmt == "csv":
             output = io.StringIO()
-            fieldnames = [
+            
+            # Base fieldnames
+            base_fieldnames = [
                 "run_id",
                 "run_item_id",
                 "started_at",
@@ -1746,6 +1874,19 @@ async def export_results(payload: Dict[str, Any]):
                 "stt_rtf",
                 "audio_path",
             ]
+            
+            # Collect all subjective rating field names from the data
+            subjective_fieldnames = set()
+            for row in norm:
+                for key in row.keys():
+                    if key.startswith("subj_"):
+                        subjective_fieldnames.add(key)
+            
+            # Sort subjective fields for consistent ordering
+            subjective_fieldnames = sorted(list(subjective_fieldnames))
+            
+            # Combine all fieldnames
+            fieldnames = base_fieldnames + subjective_fieldnames
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
             for r in norm:
@@ -1770,16 +1911,41 @@ async def export_results(payload: Dict[str, Any]):
             y -= 0.3 * inch
             c.setFont("Helvetica", 9)
             for r in norm:
-                line = f"{r['started_at']} | {r['mode']} | {r['vendor']} | {r['service']} | WER: {r.get('wer')} | E2E: {r.get('e2e_latency')}s | TTS: {r.get('tts_latency')}s | STT: {r.get('stt_latency')}s"
-                for chunk in [line[i:i+110] for i in range(0, len(line), 110)]:
+                # Build subjective ratings string
+                subj_ratings = []
+                for key, value in r.items():
+                    if key.startswith("subj_") and not key.endswith("_count"):
+                        metric_name = key.replace("subj_", "").replace("_", " ").title()
+                        count_key = f"{key}_count"
+                        count = r.get(count_key, 0)
+                        subj_ratings.append(f"{metric_name}: {value}/5 ({count})")
+                
+                subj_str = " | ".join(subj_ratings) if subj_ratings else "No ratings"
+                
+                line1 = f"{r['started_at']} | {r['mode']} | {r['vendor']} | {r['service']} | WER: {r.get('wer')} | E2E: {r.get('e2e_latency')}s | TTS: {r.get('tts_latency')}s | STT: {r.get('stt_latency')}s"
+                line2 = f"User Ratings: {subj_str}"
+                
+                # Write first line
+                for chunk in [line1[i:i+110] for i in range(0, len(line1), 110)]:
                     c.drawString(x_margin, y, chunk)
                     y -= 12
                     if y < 0.75 * inch:
                         c.showPage()
                         c.setFont("Helvetica", 9)
                         y = height - 0.75 * inch
+                
+                # Write subjective ratings line if there are any ratings
+                if subj_ratings:
+                    for chunk in [line2[i:i+110] for i in range(0, len(line2), 110)]:
+                        c.drawString(x_margin, y, chunk)
+                        y -= 12
+                        if y < 0.75 * inch:
+                            c.showPage()
+                            c.setFont("Helvetica", 9)
+                            y = height - 0.75 * inch
+                
                 # Next item spacing
-                y -= 6
+                y -= 10
                 if y < 0.75 * inch:
                     c.showPage()
                     c.setFont("Helvetica", 9)
@@ -1818,6 +1984,183 @@ async def serve_transcript(filename: str):
         content = f.read()
     return Response(content=content, media_type="text/plain; charset=utf-8")
 
+@app.get("/api/subjective-metrics")
+async def get_subjective_metrics():
+    """Get all available subjective metrics."""
+    conn = get_db_connection()
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM subjective_metrics ORDER BY service_type, name")
+        metrics = cursor.fetchall()
+        return {"subjective_metrics": metrics}
+    finally:
+        conn.close()
+
+@app.get("/api/subjective-metrics/{service_type}")
+async def get_subjective_metrics_by_service(service_type: str):
+    """Get subjective metrics for a specific service type (tts/stt)."""
+    if service_type not in ["tts", "stt"]:
+        raise HTTPException(status_code=400, detail="Service type must be 'tts' or 'stt'")
+    
+    conn = get_db_connection()
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM subjective_metrics WHERE service_type = ? ORDER BY name", (service_type,))
+        metrics = cursor.fetchall()
+        return {"subjective_metrics": metrics}
+    finally:
+        conn.close()
+
+@app.post("/api/user-ratings")
+async def submit_user_rating(rating_data: UserRatingSubmit):
+    """Submit user ratings for subjective metrics."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Validate run_item_id exists
+        cursor.execute("SELECT id FROM run_items WHERE id = ?", (rating_data.run_item_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Run item not found")
+        
+        # Validate all subjective metric IDs exist
+        for metric_id in rating_data.ratings.keys():
+            cursor.execute("SELECT id FROM subjective_metrics WHERE id = ?", (metric_id,))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=400, detail=f"Subjective metric '{metric_id}' not found")
+        
+        # Insert/update ratings (using REPLACE to handle duplicates)
+        for metric_id, rating in rating_data.ratings.items():
+            rating_id = str(uuid.uuid4())
+            comment = rating_data.comments.get(metric_id, "") if rating_data.comments else ""
+            
+            # Validate rating is within scale
+            cursor.execute("SELECT scale_min, scale_max FROM subjective_metrics WHERE id = ?", (metric_id,))
+            scale = cursor.fetchone()
+            if scale and not (scale[0] <= rating <= scale[1]):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Rating {rating} for {metric_id} must be between {scale[0]} and {scale[1]}"
+                )
+            
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO user_ratings 
+                (id, run_item_id, user_name, subjective_metric_id, rating, comment)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (rating_id, rating_data.run_item_id, rating_data.user_name, metric_id, rating, comment)
+            )
+        
+        conn.commit()
+        return {"message": "Ratings submitted successfully", "user_name": rating_data.user_name}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error submitting user ratings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to submit ratings: {str(e)}")
+    finally:
+        conn.close()
+
+@app.get("/api/user-ratings/{run_item_id}")
+async def get_user_ratings(run_item_id: str):
+    """Get average ratings and individual user ratings for a run item."""
+    conn = get_db_connection()
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    try:
+        # Get average ratings
+        cursor.execute(
+            """
+            SELECT 
+                ur.subjective_metric_id,
+                sm.name,
+                sm.description,
+                sm.service_type,
+                sm.scale_min,
+                sm.scale_max,
+                AVG(ur.rating) as avg_rating,
+                COUNT(ur.rating) as rating_count
+            FROM user_ratings ur
+            JOIN subjective_metrics sm ON ur.subjective_metric_id = sm.id
+            WHERE ur.run_item_id = ?
+            GROUP BY ur.subjective_metric_id
+            """,
+            (run_item_id,)
+        )
+        avg_ratings = cursor.fetchall()
+        
+        # Get individual user ratings
+        cursor.execute(
+            """
+            SELECT 
+                ur.*,
+                sm.name as metric_name,
+                sm.service_type
+            FROM user_ratings ur
+            JOIN subjective_metrics sm ON ur.subjective_metric_id = sm.id
+            WHERE ur.run_item_id = ?
+            ORDER BY ur.created_at DESC
+            """,
+            (run_item_id,)
+        )
+        user_ratings = cursor.fetchall()
+        
+        # Get unique user count
+        cursor.execute(
+            """
+            SELECT COUNT(DISTINCT ur.user_name) as unique_user_count
+            FROM user_ratings ur
+            WHERE ur.run_item_id = ?
+            """,
+            (run_item_id,)
+        )
+        unique_user_count = cursor.fetchone()["unique_user_count"]
+        
+        return {
+            "run_item_id": run_item_id,
+            "average_ratings": avg_ratings,
+            "user_ratings": user_ratings,
+            "unique_user_count": unique_user_count
+        }
+    finally:
+        conn.close()
+
+@app.get("/api/user-ratings/{run_item_id}/user/{user_name}")
+async def get_user_ratings_by_user(run_item_id: str, user_name: str):
+    """Get a specific user's ratings for a run item."""
+    conn = get_db_connection()
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT 
+                ur.*,
+                sm.name as metric_name,
+                sm.description,
+                sm.service_type,
+                sm.scale_min,
+                sm.scale_max
+            FROM user_ratings ur
+            JOIN subjective_metrics sm ON ur.subjective_metric_id = sm.id
+            WHERE ur.run_item_id = ? AND ur.user_name = ?
+            """,
+            (run_item_id, user_name)
+        )
+        ratings = cursor.fetchall()
+        
+        return {
+            "run_item_id": run_item_id,
+            "user_name": user_name,
+            "ratings": ratings
+        }
+    finally:
+        conn.close()
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8001, reload=True)

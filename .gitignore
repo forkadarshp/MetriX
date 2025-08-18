@@ -80,3 +80,4 @@ agenthub/agents/youtube/db
 android-sdk/ 
 
 backend/storage/audio
+backend/storage/transcripts

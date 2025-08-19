@@ -96,7 +96,9 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
             dg_params = pick_models("deepgram", "stt")
             stt_adapter = VENDOR_ADAPTERS["deepgram"]["stt"]
-            stt_result = await stt_adapter.transcribe(audio_path, **dg_params, smart_format=True, punctuate=True, language="en-US")
+            # Disable smart_format so numerical/currency formatting does not
+            # inflate WER. We normalize with jiwer in calculate_wer.
+            stt_result = await stt_adapter.transcribe(audio_path, **dg_params, smart_format=False, punctuate=True, language="en-US")
             if stt_result.get("status") == "success":
                 wer = calculate_wer(text_input, stt_result["transcript"].strip())
                 metrics.extend([

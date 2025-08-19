@@ -27,7 +27,19 @@ except Exception:
 def calculate_wer(reference: str, hypothesis: str) -> float:
     if JIWER_AVAILABLE:
         try:
-            return jiwer.wer(reference, hypothesis)  # type: ignore
+            # Normalize text ourselves for maximum compatibility across jiwer versions
+            import re as _re
+
+            def _normalize_for_wer(text: str) -> str:
+                t = text.strip().lower()
+                t = _re.sub(r"[-–—_/]", " ", t)
+                t = t.translate(str.maketrans('', '', string.punctuation))
+                t = _re.sub(r"\s+", " ", t).strip()
+                return t
+
+            ref_n = _normalize_for_wer(reference)
+            hyp_n = _normalize_for_wer(hypothesis)
+            return float(jiwer.wer(ref_n, hyp_n))  # type: ignore
         except Exception as e:
             logger.warning(f"jiwer calculation failed, falling back to basic implementation: {e}")
 

@@ -84,6 +84,8 @@ function App() {
     mode: 'isolated',
     service: 'tts',
     scriptIds: [],
+    batchScriptInput: '',
+    batchScriptFormat: 'txt',
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
       deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' }
@@ -200,8 +202,10 @@ function App() {
   };
 
   const handleBatchTest = async () => {
-    if (batchTestForm.scriptIds.length === 0) {
-      setError('Please select at least one script');
+    const hasScriptIds = batchTestForm.scriptIds.length > 0;
+    const hasPastedBatch = !!(batchTestForm.batchScriptInput && batchTestForm.batchScriptInput.trim());
+    if (!hasScriptIds && !hasPastedBatch) {
+      setError('Add at least one input: select scripts or paste batch script content');
       return;
     }
 
@@ -219,6 +223,11 @@ function App() {
           chain: batchTestForm.chain
         }
       };
+
+      if (hasPastedBatch) {
+        runData.batch_script_input = batchTestForm.batchScriptInput;
+        runData.batch_script_format = batchTestForm.batchScriptFormat || 'txt';
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/runs`, {
         method: 'POST',
@@ -1720,6 +1729,41 @@ function App() {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label>Paste Batch Script (optional)</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
+                      <div className="md:col-span-3">
+                        <Textarea
+                          placeholder={
+                            batchTestForm.batchScriptFormat === 'jsonl'
+                              ? '{"text":"Hello there"}\n{"text":"How can I help?"}'
+                              : batchTestForm.batchScriptFormat === 'csv'
+                              ? 'text\nHello there\nHow can I help?\n'
+                              : 'Hello there\nHow can I help?\n'
+                          }
+                          rows={4}
+                          value={batchTestForm.batchScriptInput}
+                          onChange={(e) => setBatchTestForm({ ...batchTestForm, batchScriptInput: e.target.value })}
+                          className="mt-1"
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Supports JSONL, CSV, or TXT. Recognized keys for JSONL/CSV: <code>text</code>, <code>prompt</code>, or <code>sentence</code>.
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Format</Label>
+                        <Select value={batchTestForm.batchScriptFormat} onValueChange={(v) => setBatchTestForm({ ...batchTestForm, batchScriptFormat: v })}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="txt">TXT (one line per item)</SelectItem>
+                            <SelectItem value="jsonl">JSONL</SelectItem>
+                            <SelectItem value="csv">CSV</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
                   {error && (
                     <Alert className="border-red-200 bg-red-50">
                       <AlertDescription className="text-red-700">{error}</AlertDescription>
@@ -1728,7 +1772,14 @@ function App() {
 
                   <Button 
                     onClick={handleBatchTest} 
-                    disabled={loading || batchTestForm.scriptIds.length === 0 || (batchTestForm.mode === 'isolated' && batchTestForm.vendors.length === 0)}
+                    disabled={
+                      loading ||
+                      (
+                        batchTestForm.scriptIds.length === 0 &&
+                        !(batchTestForm.batchScriptInput && batchTestForm.batchScriptInput.trim())
+                      ) ||
+                      (batchTestForm.mode === 'isolated' && batchTestForm.vendors.length === 0)
+                    }
                     className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
                   >
                     {loading ? (

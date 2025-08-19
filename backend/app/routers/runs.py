@@ -1,4 +1,6 @@
 import json
+import csv
+from io import StringIO
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -32,9 +34,58 @@ async def create_run(run_data: RunCreate):
             ),
         )
         test_inputs: List[Dict[str, Any]] = []
+
+        def _add_text(text: Optional[str]):
+            if text is None:
+                return
+            t = str(text).strip()
+            if t:
+                test_inputs.append({"text": t, "script_item_id": None})
+
+        def _parse_batch_input(raw: Optional[str], fmt: Optional[str]) -> None:
+            if not raw:
+                return
+            format_lower = (fmt or "txt").lower()
+            if format_lower == "jsonl":
+                for line in StringIO(raw):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        _add_text(obj.get("text") or obj.get("prompt") or obj.get("sentence"))
+                    except Exception:
+                        # Skip malformed lines
+                        continue
+            elif format_lower == "csv":
+                try:
+                    reader = csv.DictReader(StringIO(raw))
+                    for row in reader:
+                        if not row:
+                            continue
+                        _add_text(row.get("text") or row.get("prompt") or row.get("sentence"))
+                except Exception:
+                    # Fallback: treat as plain text if CSV parsing fails
+                    for line in StringIO(raw):
+                        _add_text(line)
+            else:  # txt
+                for line in StringIO(raw):
+                    _add_text(line)
         if run_data.text_inputs:
             for text in run_data.text_inputs:
                 test_inputs.append({"text": text, "script_item_id": None})
+        # Direct batch items array
+        if getattr(run_data, "batch_script_items", None):
+            for item in (run_data.batch_script_items or []):
+                try:
+                    # item can be dict or model; support both
+                    txt = item.get("text") if isinstance(item, dict) else getattr(item, "text", None)
+                    _add_text(txt)
+                except Exception:
+                    continue
+        # Raw batch input string with format
+        if getattr(run_data, "batch_script_input", None):
+            _parse_batch_input(run_data.batch_script_input, getattr(run_data, "batch_script_format", None))
         if run_data.script_ids:
             for script_id in run_data.script_ids:
                 cursor.execute("SELECT * FROM script_items WHERE script_id = ?", (script_id,))

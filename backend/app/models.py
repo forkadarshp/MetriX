@@ -20,6 +20,12 @@ class ScriptItemCreate(BaseModel):
     tags: Optional[str] = None
 
 
+class BatchScriptItem(BaseModel):
+    text: str
+    lang: Optional[str] = "en-US"
+    tags: Optional[str] = None
+
+
 class RunCreate(BaseModel):
     project_id: Optional[str] = "default_project"
     mode: Literal["isolated", "chained"]
@@ -27,6 +33,10 @@ class RunCreate(BaseModel):
     config: Optional[Dict[str, Any]] = {}
     text_inputs: Optional[List[str]] = None
     script_ids: Optional[List[str]] = None
+    # New: allow providing a script directly as batched input
+    batch_script_items: Optional[List[BatchScriptItem]] = None
+    batch_script_input: Optional[str] = None  # raw payload (JSONL/CSV/TXT)
+    batch_script_format: Optional[Literal["jsonl", "csv", "txt"]] = None
 
 
 class QuickRunForm(BaseModel):

@@ -1,6 +1,5 @@
 import time
 import uuid
-import asyncio
 from typing import Any, Dict
 
 import aiofiles
@@ -15,28 +14,12 @@ class DeepgramAdapter(VendorAdapter):
 
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.is_dummy = api_key == "dummy_deepgram_key"
 
     async def transcribe(self, audio_path: str, model: str = "nova-3", **params) -> Dict[str, Any]:
         req_time = time.perf_counter()
-        if self.is_dummy:
-            await asyncio.sleep(0.3)
-            dummy_transcripts = [
-                "Welcome to our banking services. How can I help you today?",
-                "Your account balance is one thousand two hundred fifty dollars.",
-                "The quick brown fox jumps over the lazy dog.",
-                "Hello world, this is a test of the speech recognition system.",
-            ]
-            transcript = dummy_transcripts[hash(audio_path) % len(dummy_transcripts)]
-            confidence = 0.85 + (hash(audio_path) % 15) / 100
-            return {
-                "transcript": transcript,
-                "confidence": confidence,
-                "vendor": "deepgram",
-                "latency": time.perf_counter() - req_time,
-                "status": "success",
-                "metadata": {"model": model, "language": "en-US"},
-            }
+        api_key = (self.api_key or "").strip()
+        if not api_key or api_key.lower().startswith("dummy"):
+            return {"status": "error", "error": "Deepgram API key not configured", "latency": time.perf_counter() - req_time}
         try:
             from deepgram import DeepgramClient, PrerecordedOptions, FileSource  # type: ignore
             client = DeepgramClient(self.api_key)
@@ -64,27 +47,10 @@ class DeepgramAdapter(VendorAdapter):
 
     async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "mp3", sample_rate: int = 24000, **params) -> Dict[str, Any]:
         debug_log(f"Deepgram synthesize called with: model={model}, voice={voice}, container={container}, sample_rate={sample_rate}, params={params}")
-        if self.is_dummy:
-            req_time = time.perf_counter()
-            await asyncio.sleep(0.4)
-            api_resp_time = time.perf_counter()
-            file_ext = "wav" if container == "wav" else "mp3"
-            audio_filename = f"deepgram_tts_{uuid.uuid4().hex}.{file_ext}"
-            audio_path = f"storage/audio/{audio_filename}"
-            with open(audio_path, "wb") as f:
-                f.write(b"dummy_deepgram_tts_audio")
-            dummy_duration = max(1.0, len(text) * 0.05)
-            latency = api_resp_time - req_time
-            ttfb = latency * 0.3
-            return {
-                "audio_path": audio_path,
-                "vendor": "deepgram",
-                "latency": latency,
-                "ttfb": ttfb,
-                "duration": dummy_duration,
-                "status": "success",
-                "metadata": {"model": model, "container": container, "sample_rate": sample_rate},
-            }
+        req_time = time.perf_counter()
+        api_key = (self.api_key or "").strip()
+        if not api_key or api_key.lower().startswith("dummy"):
+            return {"status": "error", "error": "Deepgram API key not configured", "latency": time.perf_counter() - req_time}
         try:
             url = "https://api.deepgram.com/v1/speak"
             headers = {"Authorization": f"Token {self.api_key}", "Content-Type": "application/json"}

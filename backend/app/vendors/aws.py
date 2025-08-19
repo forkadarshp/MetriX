@@ -24,23 +24,10 @@ class AWSAdapter(VendorAdapter):
 
     async def synthesize(self, text: str, voice: str = "Joanna", **params) -> Dict[str, Any]:
         logger.info(f"AWS Polly synthesize called for text: '{text[:30]}...'")
+        req_time = time.perf_counter()
         if not self._polly_client:
-            logger.warning("Using fallback AWS Polly implementation.")
-            req_time = time.perf_counter()
-            await asyncio.sleep(0.4)
-            api_resp_time = time.perf_counter()
-            audio_filename = f"aws_polly_{uuid.uuid4().hex}.mp3"
-            audio_path = f"storage/audio/{audio_filename}"
-            with open(audio_path, "wb") as f:
-                f.write(b"dummy_audio_data_aws_polly")
-            return {
-                "audio_path": audio_path,
-                "vendor": "aws",
-                "voice": voice,
-                "latency": api_resp_time - req_time,
-                "status": "success",
-                "metadata": {"engine": "neural", "voice_id": voice},
-            }
+            logger.error("AWS Polly client not initialized; cannot synthesize.")
+            return {"status": "error", "error": "AWS Polly client not initialized", "latency": time.perf_counter() - req_time}
 
         def _synthesize_and_read():
             try:
@@ -61,7 +48,6 @@ class AWSAdapter(VendorAdapter):
                 logger.error(f"AWS Polly API error during synthesis: {e}")
                 return None
 
-        req_time = time.perf_counter()
         try:
             audio_data = await asyncio.to_thread(_synthesize_and_read)
             api_resp_time = time.perf_counter()
@@ -95,25 +81,8 @@ class AWSAdapter(VendorAdapter):
     async def transcribe(self, audio_path: str, **params) -> Dict[str, Any]:
         req_time = time.perf_counter()
         if not self._polly_client:  # Assume if Polly isn't configured, Transcribe isn't either
-            logger.warning("Using fallback AWS Transcribe implementation.")
-            await asyncio.sleep(0.6)
-            dummy_transcripts = [
-                "Welcome to our banking services how can I help you today",
-                "Your account balance is one thousand two hundred fifty dollars",
-                "The quick brown fox jumps over the lazy dog",
-                "Hello world this is a test of the speech recognition system",
-            ]
-            transcript = dummy_transcripts[hash(audio_path) % len(dummy_transcripts)]
-            confidence = 0.80 + (hash(audio_path) % 20) / 100
-            return {
-                "transcript": transcript,
-                "confidence": confidence,
-                "vendor": "aws",
-                "latency": time.perf_counter() - req_time,
-                "status": "success",
-                "metadata": {"job_name": f"job_{uuid.uuid4().hex}", "language": "en-US"},
-            }
-        else:
-            return {"status": "error", "error": "Real AWS Transcribe implementation not available", "latency": time.perf_counter() - req_time}
+            logger.error("AWS Transcribe not configured; cannot transcribe.")
+            return {"status": "error", "error": "AWS Transcribe not configured", "latency": time.perf_counter() - req_time}
+        return {"status": "error", "error": "AWS Transcribe implementation not available", "latency": time.perf_counter() - req_time}
 
 

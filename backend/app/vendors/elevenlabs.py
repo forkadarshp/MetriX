@@ -1,4 +1,3 @@
-import asyncio
 import time
 import uuid
 from typing import Any, Dict
@@ -13,28 +12,12 @@ class ElevenLabsAdapter(VendorAdapter):
 
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.is_dummy = api_key == "dummy_eleven_key"
 
     async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_flash_v2_5", **params) -> Dict[str, Any]:
-        if self.is_dummy:
-            req_time = time.perf_counter()
-            await asyncio.sleep(0.5)
-            api_resp_time = time.perf_counter()
-            audio_filename = f"elevenlabs_{uuid.uuid4().hex}.mp3"
-            audio_path = f"storage/audio/{audio_filename}"
-            with open(audio_path, "wb") as f:
-                f.write(b"dummy_audio_data_elevenlabs")
-            latency = api_resp_time - req_time
-            ttfb = latency * 0.2
-            return {
-                "audio_path": audio_path,
-                "vendor": "elevenlabs",
-                "voice": voice,
-                "latency": latency,
-                "ttfb": ttfb,
-                "status": "success",
-                "metadata": {"model": model_id, "voice_id": voice},
-            }
+        req_time = time.perf_counter()
+        api_key = (self.api_key or "").strip()
+        if not api_key or api_key.lower().startswith("dummy"):
+            return {"status": "error", "error": "ElevenLabs API key not configured", "latency": time.perf_counter() - req_time}
         try:
             from elevenlabs import ElevenLabs  # type: ignore
             client = ElevenLabs(api_key=self.api_key)
@@ -70,16 +53,9 @@ class ElevenLabsAdapter(VendorAdapter):
 
     async def transcribe(self, audio_path: str, model_id: str = "scribe_v1", **params) -> Dict[str, Any]:
         req_time = time.perf_counter()
-        if self.is_dummy:
-            await asyncio.sleep(0.3)
-            return {
-                "transcript": "Dummy transcription from ElevenLabs Scribe.",
-                "confidence": 0.92,
-                "vendor": "elevenlabs",
-                "latency": time.perf_counter() - req_time,
-                "status": "success",
-                "metadata": {"model": model_id},
-            }
+        api_key = (self.api_key or "").strip()
+        if not api_key or api_key.lower().startswith("dummy"):
+            return {"status": "error", "error": "ElevenLabs API key not configured", "latency": time.perf_counter() - req_time}
         try:
             from elevenlabs import ElevenLabs  # type: ignore
             client = ElevenLabs(api_key=self.api_key)

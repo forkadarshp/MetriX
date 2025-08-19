@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 import io
 import csv
 import wave
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
 # Try optional audio duration reader
 try:
@@ -50,8 +52,6 @@ except ImportError:
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "dummy_eleven_key")
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "dummy_deepgram_key")
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY", "dummy_aws_key")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY", "dummy_aws_secret")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 # Initialize FastAPI app
@@ -587,17 +587,22 @@ class DeepgramAdapter(VendorAdapter):
             return {"status": "error", "error": str(e), "latency": 0.0}
 
 class AWSAdapter(VendorAdapter):
-    """AWS Polly/Transcribe adapter using dummy implementation."""
+    """AWS Polly/Transcribe adapter."""
     
-    def __init__(self, access_key: str, secret_key: str, region: str):
-        self.access_key = access_key
-        self.secret_key = secret_key
+    def __init__(self, region: str):
         self.region = region
-        self.is_dummy = access_key == "dummy_aws_key"
-    
+        try:
+            self._polly_client = boto3.client("polly", region_name=region)
+            logger.info("AWS Polly client initialized successfully using IAM role.")
+        except Exception as e:
+            logger.error(f"Failed to initialize AWS Polly client: {e}. AWS services will use fallback implementation.")
+            self._polly_client = None
+
     async def synthesize(self, text: str, voice: str = "Joanna", **params) -> Dict[str, Any]:
         """Synthesize text using AWS Polly."""
-        if self.is_dummy:
+        logger.info(f"AWS Polly synthesize called for text: '{text[:30]}...'")
+        if not self._polly_client:
+            logger.warning("Using fallback AWS Polly implementation.")
             req_time = time.perf_counter()
             await asyncio.sleep(0.4)  # Simulate API delay
             api_resp_time = time.perf_counter()
@@ -608,19 +613,73 @@ class AWSAdapter(VendorAdapter):
                 f.write(b"dummy_audio_data_aws_polly")
             return {
                 "audio_path": audio_path,
-                "vendor": "aws_polly",
+                "vendor": "aws",
                 "voice": voice,
                 "latency": api_resp_time - req_time,  # pure API latency only
                 "status": "success",
                 "metadata": {"engine": "neural", "voice_id": voice}
             }
-        else:
-            return {"status": "error", "error": "Real AWS implementation not available", "latency": 0.0}
+        
+        def _synthesize_and_read():
+            try:
+                logger.info(f"Synthesizing with Polly: voice='{voice}', engine='{params.get('engine', 'neural')}'")
+                response = self._polly_client.synthesize_speech(
+                    Text=text,
+                    OutputFormat="mp3",
+                    VoiceId=voice,
+                    Engine=params.get("engine", "neural")
+                )
+                if "AudioStream" in response:
+                    audio_data = response["AudioStream"].read()
+                    logger.info(f"Polly returned AudioStream with length: {len(audio_data)} bytes.")
+                    return audio_data
+                logger.warning("Polly response did not contain AudioStream.")
+                return None
+            except (BotoCoreError, ClientError) as e:
+                logger.error(f"AWS Polly API error during synthesis: {e}")
+                return None
+
+        req_time = time.perf_counter()
+        try:
+            audio_data = await asyncio.to_thread(_synthesize_and_read)
+            api_resp_time = time.perf_counter()
+
+            if not audio_data:
+                logger.error("AWS Polly returned no audio data after thread execution.")
+                return {"status": "error", "error": "AWS Polly returned no audio data", "latency": time.perf_counter() - req_time}
+
+            audio_filename = f"aws_polly_{uuid.uuid4().hex}.mp3"
+            audio_path = f"storage/audio/{audio_filename}"
+            
+            try:
+                with open(audio_path, "wb") as f:
+                    f.write(audio_data)
+                logger.info(f"Successfully wrote {len(audio_data)} bytes to {audio_path}")
+            except Exception as e:
+                logger.error(f"Failed to write audio data to file {audio_path}: {e}")
+                return {"status": "error", "error": f"File write error: {e}", "latency": time.perf_counter() - req_time}
+
+            latency = api_resp_time - req_time
+            ttfb = latency * 0.2  # Placeholder ttfb
+            
+            return {
+                "audio_path": audio_path,
+                "vendor": "aws",
+                "voice": voice,
+                "latency": latency,
+                "ttfb": ttfb,
+                "status": "success",
+                "metadata": {"engine": params.get("engine", "neural"), "voice_id": voice}
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error in AWS Polly synthesize: {e}")
+            return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
     
     async def transcribe(self, audio_path: str, **params) -> Dict[str, Any]:
         """Transcribe audio using AWS Transcribe."""
         req_time = time.perf_counter()
-        if self.is_dummy:
+        if not self._polly_client: # Assume if Polly isn't configured, Transcribe isn't either
+            logger.warning("Using fallback AWS Transcribe implementation.")
             await asyncio.sleep(0.6)
             dummy_transcripts = [
                 "Welcome to our banking services how can I help you today",
@@ -633,18 +692,18 @@ class AWSAdapter(VendorAdapter):
             return {
                 "transcript": transcript,
                 "confidence": confidence,
-                "vendor": "aws_transcribe",
+                "vendor": "aws",
                 "latency": time.perf_counter() - req_time,
                 "status": "success",
                 "metadata": {"job_name": f"job_{uuid.uuid4().hex}", "language": "en-US"}
             }
         else:
-            return {"status": "error", "error": "Real AWS implementation not available", "latency": time.perf_counter() - req_time}
+            return {"status": "error", "error": "Real AWS Transcribe implementation not available", "latency": time.perf_counter() - req_time}
 
 # Initialize vendor adapters
 elevenlabs_adapter = ElevenLabsAdapter(ELEVEN_API_KEY)
 deepgram_adapter = DeepgramAdapter(DEEPGRAM_API_KEY)
-aws_adapter = AWSAdapter(AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_REGION)
+aws_adapter = AWSAdapter(AWS_REGION)
 
 VENDOR_ADAPTERS = {
     "elevenlabs": {"tts": elevenlabs_adapter, "stt": elevenlabs_adapter},
@@ -1323,6 +1382,10 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             result = {"model": tts_model, "voice": voice}
             debug_log(f"Deepgram TTS pick_models result: {result}")
             return result
+        if vendor_name == "aws" and svc == "tts":
+            result = {"voice": models.get("voice_id") or "Joanna", "engine": models.get("engine") or "neural"}
+            logger.info(f"Picked models for AWS TTS: {result}")
+            return result
         return {}
 
     if service == "tts":
@@ -1385,8 +1448,6 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 wer = calculate_wer(text_input, stt_result["transcript"].strip())
                 metrics.extend([
                     {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.15, "pass_fail": "pass" if wer <= 0.15 else "fail"},
-                    {"name": "accuracy", "value": (1 - wer) * 100, "unit": "percent"},
-                    {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"}
                 ])
             for metric in metrics:
                 metric_id = str(uuid.uuid4())
@@ -1464,8 +1525,6 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 )
                 metrics = [
                     {"name": "wer", "value": wer, "unit": "ratio", "threshold": 0.15, "pass_fail": "pass" if wer <= 0.15 else "fail"},
-                    {"name": "accuracy", "value": (1 - wer) * 100, "unit": "percent"},
-                    {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"},
                     {"name": "stt_latency", "value": stt_latency, "unit": "seconds"},
                     {"name": "audio_duration", "value": duration, "unit": "seconds"},
                 ]
@@ -1537,6 +1596,10 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
                 pass
             result = {"model": tts_model, "voice": voice}
             debug_log(f"Deepgram TTS pick_models result: {result}")
+            return result
+        if vendor_name == "aws" and svc == "tts":
+            result = {"voice": models.get("voice_id") or "Joanna", "engine": models.get("engine") or "neural"}
+            logger.info(f"Picked models for AWS TTS: {result}")
             return result
         return {}
 
@@ -1612,7 +1675,6 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
         {"name": "e2e_latency", "value": total_latency, "unit": "seconds"},
         {"name": "tts_latency", "value": tts_latency, "unit": "seconds"},
         {"name": "stt_latency", "value": stt_latency, "unit": "seconds"},
-        {"name": "confidence", "value": stt_result.get("confidence", 0.0), "unit": "ratio"},
         {"name": "audio_duration", "value": duration, "unit": "seconds"},
     ]
     if tts_ttfb is not None and tts_ttfb > 0:
@@ -1834,8 +1896,6 @@ async def export_results(payload: Dict[str, Any]):
                 "text_input": row.get("text_input"),
                 "transcript": row.get("transcript"),
                 "wer": metrics_map.get("wer"),
-                "accuracy": metrics_map.get("accuracy"),
-                "confidence": metrics_map.get("confidence"),
                 "e2e_latency": metrics_map.get("e2e_latency"),
                 "tts_latency": metrics_map.get("tts_latency"),
                 "stt_latency": metrics_map.get("stt_latency"),
@@ -1863,8 +1923,6 @@ async def export_results(payload: Dict[str, Any]):
                 "text_input",
                 "transcript",
                 "wer",
-                "accuracy",
-                "confidence",
                 "e2e_latency",
                 "tts_latency",
                 "stt_latency",

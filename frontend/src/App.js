@@ -260,10 +260,7 @@ function App() {
     return `${(latency * 1000).toFixed(0)}ms`;
   };
 
-  const formatAccuracy = (wer) => {
-    if (wer === null || wer === undefined) return 'N/A';
-    return `${((1 - wer) * 100).toFixed(1)}%`;
-  };
+
 
   const StatCard = ({ icon: Icon, title, value, subtitle, trend }) => (
     <Card className="relative overflow-hidden">
@@ -331,14 +328,7 @@ function App() {
         return enhancedBadge('WER', `${percentage}%`, color, tooltip);
       }
       
-      if (name === 'accuracy') {
-        const percentage = num.toFixed(1);
-        const color = num >= 90 ? 'bg-green-100 text-green-800 border-green-200' : 
-                     num >= 70 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
-                     'bg-red-100 text-red-800 border-red-200';
-        const tooltip = `Speech Recognition Accuracy: ${percentage}% - ${num >= 90 ? 'Excellent' : num >= 70 ? 'Good' : 'Needs Improvement'}. Higher is better.`;
-        return enhancedBadge('Accuracy', `${percentage}%`, color, tooltip);
-      }
+
       
       if (name === 'confidence') {
         const percentage = (num * 100).toFixed(0);
@@ -389,7 +379,7 @@ function App() {
       if (name === 'audio_duration') {
         const duration = num.toFixed(2);
         const tooltip = `Audio Duration: ${duration}s - Length of generated/processed audio file.`;
-        return enhancedBadge('Audio', `${duration}s`, 'bg-blue-100 text-blue-800 border-blue-200', tooltip);
+        return enhancedBadge('Audio Length', `${duration}s`, 'bg-blue-100 text-blue-800 border-blue-200', tooltip);
       }
       
       if (name === 'ttfb' || name === 'tts_ttfb') {
@@ -950,10 +940,10 @@ function App() {
                 ['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration'].includes(m.name)
               );
               const qualityMetrics = metrics.filter(m => 
-                ['wer', 'accuracy', 'confidence', 'bleu', 'rouge'].includes(m.name)
+                ['wer', 'bleu', 'rouge'].includes(m.name)
               );
               const otherMetrics = metrics.filter(m => 
-                !['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration', 'wer', 'accuracy', 'confidence', 'bleu', 'rouge'].includes(m.name)
+                !['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration', 'wer', 'confidence', 'bleu', 'rouge'].includes(m.name)
               );
               
               // Add subjective metrics
@@ -1161,7 +1151,7 @@ function App() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <StatCard
                 icon={Target}
                 title="Total Runs"
@@ -1174,12 +1164,7 @@ function App() {
                 value={`${dashboardStats.success_rate || 0}%`}
                 subtitle="Completed successfully"
               />
-              <StatCard
-                icon={BarChart3}
-                title="Avg Accuracy"
-                value={`${dashboardStats.avg_accuracy || 0}%`}
-                subtitle="Speech recognition"
-              />
+
               <StatCard
                 icon={Clock}
                 title="Avg Latency"

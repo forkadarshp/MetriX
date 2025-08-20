@@ -74,7 +74,8 @@ function App() {
     service: 'tts',
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
-      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' }
+      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' },
+      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
@@ -88,7 +89,8 @@ function App() {
     batchScriptFormat: 'txt',
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
-      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' }
+      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' },
+      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
@@ -911,7 +913,8 @@ function App() {
               {item.vendor === 'elevenlabs' && <Speaker className="h-4 w-4 text-purple-600" />}
               {item.vendor === 'deepgram' && <Mic className="h-4 w-4 text-green-600" />}
               {item.vendor === 'aws' && <Zap className="h-4 w-4 text-orange-600" />}
-              <span className="font-medium capitalize">{item.vendor}</span>
+              {item.vendor === 'azure_openai' && <MessageSquare className="h-4 w-4 text-blue-600" />}
+              <span className="font-medium capitalize">{item.vendor.replace('_', ' ')}</span>
               {renderServiceBadge(item)}
               <Badge variant="outline" className={getStatusColor(item.status)}>
                 {item.status}
@@ -1261,6 +1264,7 @@ function App() {
                         <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
                         <SelectItem value="deepgram">Deepgram</SelectItem>
                         <SelectItem value="aws">AWS</SelectItem>
+                        <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1435,6 +1439,45 @@ function App() {
                           )}
                         </div>
                       )}
+                      {quickTestForm.vendors.includes('azure_openai') && (
+                        <div className="space-y-2">
+                          {quickTestForm.service === 'tts' && (
+                            <>
+                              <Label>Azure OpenAI TTS Model</Label>
+                              <Select value={quickTestForm.models.azure_openai.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, azure_openai: {...quickTestForm.models.azure_openai, tts_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="tts-1">tts-1</SelectItem>
+                                  <SelectItem value="tts-1-hd">tts-1-hd</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Label className="mt-2">Voice</Label>
+                              <Select value={quickTestForm.models.azure_openai.voice} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, azure_openai: {...quickTestForm.models.azure_openai, voice: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="alloy">alloy</SelectItem>
+                                  <SelectItem value="echo">echo</SelectItem>
+                                  <SelectItem value="fable">fable</SelectItem>
+                                  <SelectItem value="onyx">onyx</SelectItem>
+                                  <SelectItem value="nova">nova</SelectItem>
+                                  <SelectItem value="shimmer">shimmer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                          {quickTestForm.service === 'stt' && (
+                            <>
+                              <Label className="mt-2">Azure OpenAI STT Model</Label>
+                              <Select value={quickTestForm.models.azure_openai.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, azure_openai: {...quickTestForm.models.azure_openai, stt_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="whisper-1">whisper-1</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1448,6 +1491,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                            <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1458,6 +1502,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
                             <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
+                            <SelectItem value="azure_openai">Azure OpenAI (STT)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1469,7 +1514,7 @@ function App() {
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
+                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai'].map((vendor) => (
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
@@ -1489,7 +1534,7 @@ function App() {
                               }}
                               className="rounded border-gray-300"
                             />
-                            <span className="text-sm capitalize">{vendor}</span>
+                            <span className="text-sm capitalize">{vendor.replace('_', ' ')}</span>
                           </label>
                         ))}
                       </div>
@@ -1596,6 +1641,45 @@ function App() {
                               )}
                             </div>
                           )}
+                          {batchTestForm.vendors.includes('azure_openai') && (
+                            <div className="space-y-2">
+                              {batchTestForm.service === 'tts' && (
+                                <>
+                                  <Label>Azure OpenAI TTS Model</Label>
+                                  <Select value={batchTestForm.models.azure_openai.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, azure_openai: {...batchTestForm.models.azure_openai, tts_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="tts-1">tts-1</SelectItem>
+                                      <SelectItem value="tts-1-hd">tts-1-hd</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Label className="mt-2">Voice</Label>
+                                  <Select value={batchTestForm.models.azure_openai.voice} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, azure_openai: {...batchTestForm.models.azure_openai, voice: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="alloy">alloy</SelectItem>
+                                      <SelectItem value="echo">echo</SelectItem>
+                                      <SelectItem value="fable">fable</SelectItem>
+                                      <SelectItem value="onyx">onyx</SelectItem>
+                                      <SelectItem value="nova">nova</SelectItem>
+                                      <SelectItem value="shimmer">shimmer</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                              {batchTestForm.service === 'stt' && (
+                                <>
+                                  <Label className="mt-2">Azure OpenAI STT Model</Label>
+                                  <Select value={batchTestForm.models.azure_openai.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, azure_openai: {...batchTestForm.models.azure_openai, stt_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="whisper-1">whisper-1</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1637,6 +1721,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                            <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1647,6 +1732,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
                             <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
+                            <SelectItem value="azure_openai">Azure OpenAI (STT)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1658,7 +1744,7 @@ function App() {
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws'].map((vendor) => (
+                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai'].map((vendor) => (
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
@@ -1678,7 +1764,7 @@ function App() {
                               }}
                               className="rounded border-gray-300"
                             />
-                            <span className="text-sm capitalize">{vendor}</span>
+                            <span className="text-sm capitalize">{vendor.replace('_', ' ')}</span>
                           </label>
                         ))}
                       </div>

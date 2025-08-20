@@ -15,6 +15,10 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "dummy_eleven_key")
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "dummy_deepgram_key")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "dummy_azure_openai_key")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "dummy_azure_endpoint")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-06-01")
+AZURE_OPENAI_STT_MODEL = os.getenv("AZURE_OPENAI_STT_MODEL", "whisper-1")
 
 # Directories and paths
 DATA_DIR = Path("data")

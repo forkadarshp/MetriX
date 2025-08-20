@@ -35,3 +35,5 @@ httpcore>=1.0.0
 deprecation>=2.1.0
 aenum>=3.1.0
 dataclasses-json>=0.6.0
+openai>=1.51.0
+pipecat-ai>=0.0.71

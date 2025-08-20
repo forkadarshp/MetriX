@@ -61,6 +61,10 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             result = {"voice": models.get("voice_id") or "Joanna", "engine": models.get("engine") or "neural"}
             logger.info(f"Picked models for AWS TTS: {result}")
             return result
+        if vendor_name == "azure_openai" and svc == "stt":
+            return {"model": models.get("stt_model") or "whisper-1", "language": models.get("language") or "en"}
+        if vendor_name == "azure_openai" and svc == "tts":
+            return {"model": models.get("tts_model") or "tts-1", "voice": models.get("voice") or "alloy"}
         return {}
 
     if service == "tts":
@@ -94,11 +98,10 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 metrics.append({"name": "tts_ttfb", "value": tts_ttfb, "unit": "seconds"})
             if tts_rtf is not None:
                 metrics.append({"name": "tts_rtf", "value": tts_rtf, "unit": "x"})
-            dg_params = pick_models("deepgram", "stt")
-            stt_adapter = VENDOR_ADAPTERS["deepgram"]["stt"]
-            # Disable smart_format so numerical/currency formatting does not
-            # inflate WER. We normalize with jiwer in calculate_wer.
-            stt_result = await stt_adapter.transcribe(audio_path, **dg_params, smart_format=False, punctuate=True, language="en-US")
+            azure_params = pick_models("azure_openai", "stt")
+            stt_adapter = VENDOR_ADAPTERS["azure_openai"]["stt"]
+            # Use Azure OpenAI Whisper for transcription in isolated TTS testing
+            stt_result = await stt_adapter.transcribe(audio_path, **azure_params)
             if stt_result.get("status") == "success":
                 wer = calculate_wer(text_input, stt_result["transcript"].strip())
                 metrics.extend([
@@ -233,6 +236,10 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
             result = {"voice": models.get("voice_id") or "Joanna", "engine": models.get("engine") or "neural"}
             logger.info(f"Picked models for AWS TTS: {result}")
             return result
+        if vendor_name == "azure_openai" and svc == "stt":
+            return {"model": models.get("stt_model") or "whisper-1", "language": models.get("language") or "en"}
+        if vendor_name == "azure_openai" and svc == "tts":
+            return {"model": models.get("tts_model") or "tts-1", "voice": models.get("voice") or "alloy"}
         return {}
 
     tts_adapter = VENDOR_ADAPTERS[tts_vendor]["tts"]
